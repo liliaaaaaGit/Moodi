@@ -2,6 +2,29 @@ import { NextResponse } from "next/server";
 import { skillFormSchema } from "@/lib/skills/schema";
 import { createClient } from "@/lib/supabase/server";
 
+export async function GET() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
+  }
+
+  const { data: skills, error } = await supabase
+    .from("skills")
+    .select("id, name, kategorie, aktiv, level_min, level_max")
+    .eq("user_id", user.id)
+    .order("name");
+
+  if (error) {
+    return NextResponse.json({ error: "Skills konnten nicht geladen werden" }, { status: 500 });
+  }
+
+  return NextResponse.json({ skills: skills ?? [] });
+}
+
 export async function POST(request: Request) {
   const supabase = createClient();
   const {

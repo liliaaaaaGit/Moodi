@@ -1,14 +1,11 @@
 "use client";
 
 import { clsx } from "clsx";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/Card";
 import { HistoryHeatmap } from "@/components/history/HistoryHeatmap";
 import { HistoryLineChart, type ChartPoint } from "@/components/history/HistoryLineChart";
-import {
-  HistoryPointSheet,
-  type ChartPointDetail,
-} from "@/components/history/HistoryPointSheet";
 import { SectionHeader } from "@/components/SectionHeader";
 import type { HistoryRange, TimeBucket } from "@/lib/history/analytics";
 
@@ -39,10 +36,10 @@ const TABS: { id: HistoryRange; label: string }[] = [
 ];
 
 export function HistoryClient() {
+  const router = useRouter();
   const [range, setRange] = useState<HistoryRange>("week");
   const [data, setData] = useState<HistoryData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedPoint, setSelectedPoint] = useState<ChartPointDetail | null>(null);
 
   const loadData = useCallback(async (selectedRange: HistoryRange) => {
     setLoading(true);
@@ -60,6 +57,10 @@ export function HistoryClient() {
   useEffect(() => {
     loadData(range);
   }, [range, loadData]);
+
+  function handlePointSelect(point: ChartPoint) {
+    router.push(`/history/${point.id}`);
+  }
 
   return (
     <>
@@ -90,10 +91,7 @@ export function HistoryClient() {
           <Card className="p-4">
             <SectionHeader>Anspannung im Verlauf</SectionHeader>
             <div className="mt-4">
-              <HistoryLineChart
-                data={data.chartPoints}
-                onPointSelect={(point) => setSelectedPoint(point)}
-              />
+              <HistoryLineChart data={data.chartPoints} onPointSelect={handlePointSelect} />
             </div>
           </Card>
 
@@ -176,8 +174,6 @@ export function HistoryClient() {
           </section>
         </div>
       ) : null}
-
-      <HistoryPointSheet point={selectedPoint} onClose={() => setSelectedPoint(null)} />
     </>
   );
 }

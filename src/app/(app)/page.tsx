@@ -9,6 +9,8 @@ import { SettingsLink } from "@/components/SettingsLink";
 import { loadHeuteData } from "@/lib/data/heute";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default async function HeutePage() {
   const data = await loadHeuteData();
 

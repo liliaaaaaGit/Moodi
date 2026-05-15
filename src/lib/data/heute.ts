@@ -74,6 +74,7 @@ export async function loadHeuteData() {
   }));
 
   const sparkline = checkinsToday.map((checkin) => ({
+    id: checkin.id,
     time: formatBerlinTime(checkin.created_at),
     level: checkin.level_before,
   }));

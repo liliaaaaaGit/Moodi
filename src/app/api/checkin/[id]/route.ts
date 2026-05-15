@@ -1,20 +1,41 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 
 const patchSchema = z.object({
+  level_before: z.number().int().min(0).max(10).optional(),
+  situation: z.string().max(5000).nullable().optional(),
+  gedanken: z.string().max(5000).nullable().optional(),
+  koerper: z.string().max(5000).nullable().optional(),
+  gefuehl: z.string().max(5000).nullable().optional(),
+  beduerfnis: z.string().max(5000).nullable().optional(),
+  level_after: z.number().int().min(0).max(10).nullable().optional(),
+  hilfreich: z.enum(["ja", "bisschen", "nein"]).nullable().optional(),
+  comment: z.string().max(2000).nullable().optional(),
   chosen_skill_id: z.string().uuid().nullable().optional(),
   skill_status: z
     .enum(["gemacht", "nicht_gemacht", "anderer", "uebersprungen"])
+    .nullable()
     .optional(),
-  level_after: z.number().int().min(0).max(10).optional(),
-  hilfreich: z.enum(["ja", "bisschen", "nein"]).optional(),
-  comment: z.string().max(2000).nullable().optional(),
 });
 
 type RouteContext = {
   params: { id: string };
 };
+
+async function loadSkill(
+  supabase: ReturnType<typeof createClient>,
+  skillId: string | null
+) {
+  if (!skillId) return null;
+  const { data: skill } = await supabase
+    .from("skills")
+    .select("id, name, kategorie, dauer_minuten, beschreibung")
+    .eq("id", skillId)
+    .maybeSingle();
+  return skill;
+}
 
 export async function GET(_request: Request, { params }: RouteContext) {
   const supabase = createClient();
@@ -29,7 +50,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   const { data: checkin, error } = await supabase
     .from("checkins")
     .select(
-      "id, level_before, level_after, input_raw, situation, gedanken, koerper, gefuehl, beduerfnis, suggested_skill_id, crisis_flag, hilfreich, comment, skill_status, chosen_skill_id"
+      "id, created_at, level_before, level_after, input_raw, situation, gedanken, koerper, gefuehl, beduerfnis, suggested_skill_id, chosen_skill_id, crisis_flag, hilfreich, comment, skill_status"
     )
     .eq("id", params.id)
     .eq("user_id", user.id)
@@ -39,20 +60,16 @@ export async function GET(_request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "Check-in nicht gefunden" }, { status: 404 });
   }
 
-  let suggestedSkill = null;
-  if (checkin.suggested_skill_id) {
-    const { data: skill } = await supabase
-      .from("skills")
-      .select("id, name, kategorie, dauer_minuten, beschreibung")
-      .eq("id", checkin.suggested_skill_id)
-      .maybeSingle();
-    suggestedSkill = skill;
-  }
+  const [suggestedSkill, chosenSkill] = await Promise.all([
+    loadSkill(supabase, checkin.suggested_skill_id),
+    loadSkill(supabase, checkin.chosen_skill_id),
+  ]);
 
   return NextResponse.json({
     checkin: {
       ...checkin,
       suggested_skill: suggestedSkill,
+      chosen_skill: chosenSkill,
     },
   });
 }
@@ -76,21 +93,17 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
   const updates: Record<string, unknown> = {};
 
-  if (body.chosen_skill_id !== undefined) {
-    updates.chosen_skill_id = body.chosen_skill_id;
-  }
-  if (body.skill_status !== undefined) {
-    updates.skill_status = body.skill_status;
-  }
-  if (body.level_after !== undefined) {
-    updates.level_after = body.level_after;
-  }
-  if (body.hilfreich !== undefined) {
-    updates.hilfreich = body.hilfreich;
-  }
-  if (body.comment !== undefined) {
-    updates.comment = body.comment;
-  }
+  if (body.level_before !== undefined) updates.level_before = body.level_before;
+  if (body.situation !== undefined) updates.situation = body.situation;
+  if (body.gedanken !== undefined) updates.gedanken = body.gedanken;
+  if (body.koerper !== undefined) updates.koerper = body.koerper;
+  if (body.gefuehl !== undefined) updates.gefuehl = body.gefuehl;
+  if (body.beduerfnis !== undefined) updates.beduerfnis = body.beduerfnis;
+  if (body.level_after !== undefined) updates.level_after = body.level_after;
+  if (body.hilfreich !== undefined) updates.hilfreich = body.hilfreich;
+  if (body.comment !== undefined) updates.comment = body.comment;
+  if (body.chosen_skill_id !== undefined) updates.chosen_skill_id = body.chosen_skill_id;
+  if (body.skill_status !== undefined) updates.skill_status = body.skill_status;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "Keine Felder zum Aktualisieren" }, { status: 400 });
@@ -108,5 +121,36 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "Check-in nicht gefunden" }, { status: 404 });
   }
 
+  revalidatePath("/");
+  revalidatePath("/history");
+
   return NextResponse.json({ ok: true, checkinId: data.id });
+}
+
+export async function DELETE(_request: Request, { params }: RouteContext) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
+  }
+
+  const { data, error } = await supabase
+    .from("checkins")
+    .delete()
+    .eq("id", params.id)
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    return NextResponse.json({ error: "Check-in nicht gefunden" }, { status: 404 });
+  }
+
+  revalidatePath("/");
+  revalidatePath("/history");
+
+  return NextResponse.json({ ok: true });
 }
