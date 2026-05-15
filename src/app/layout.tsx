@@ -19,7 +19,8 @@ export const metadata: Metadata = {
     title: "Anspannung",
   },
   icons: {
-    apple: "/icon-180.png",
+    icon: [{ url: "/favicon-32.png", sizes: "32x32", type: "image/png" }],
+    apple: "/apple-icon.png",
   },
 };
 
