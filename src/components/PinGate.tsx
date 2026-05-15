@@ -100,7 +100,7 @@ export function PinGate({ children }: PinGateProps) {
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg">
-        <p className="text-text-secondary">Laedt…</p>
+        <p className="text-text-secondary">Lädt…</p>
       </div>
     );
   }
@@ -152,7 +152,7 @@ export function PinGate({ children }: PinGateProps) {
           </div>
 
           <PrimaryButton type="submit" disabled={loading || pin.length !== 4}>
-            {loading ? "Prueft…" : "Entsperren"}
+            {loading ? "Prüft…" : "Entsperren"}
           </PrimaryButton>
         </form>
       </main>

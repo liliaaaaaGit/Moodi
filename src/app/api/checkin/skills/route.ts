@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const level = levelParam ? Number(levelParam) : NaN;
 
   if (!Number.isInteger(level) || level < 0 || level > 10) {
-    return NextResponse.json({ error: "Ungueltiges Level" }, { status: 400 });
+    return NextResponse.json({ error: "Ungültiges Level" }, { status: 400 });
   }
 
   const { data: skills, error } = await supabase

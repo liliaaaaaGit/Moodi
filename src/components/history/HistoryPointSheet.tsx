@@ -23,7 +23,7 @@ export function HistoryPointSheet({ point, onClose }: HistoryPointSheetProps) {
       <button
         type="button"
         className="absolute inset-0 bg-text-primary/30"
-        aria-label="Schliessen"
+        aria-label="Schließen"
         onClick={onClose}
       />
       <div
@@ -36,7 +36,7 @@ export function HistoryPointSheet({ point, onClose }: HistoryPointSheetProps) {
             type="button"
             onClick={onClose}
             className="flex h-10 w-10 items-center justify-center rounded-full text-text-secondary"
-            aria-label="Schliessen"
+            aria-label="Schließen"
           >
             <X className="h-5 w-5" />
           </button>

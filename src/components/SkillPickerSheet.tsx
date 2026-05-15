@@ -23,7 +23,7 @@ export function SkillPickerSheet({
       <button
         type="button"
         className="absolute inset-0 bg-text-primary/30"
-        aria-label="Schliessen"
+        aria-label="Schließen"
         onClick={onClose}
       />
       <div
@@ -31,12 +31,12 @@ export function SkillPickerSheet({
         style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text-primary">Skill waehlen</h2>
+          <h2 className="text-lg font-semibold text-text-primary">Skill wählen</h2>
           <button
             type="button"
             onClick={onClose}
             className="flex h-10 w-10 items-center justify-center rounded-full text-text-secondary"
-            aria-label="Schliessen"
+            aria-label="Schließen"
           >
             <X className="h-5 w-5" />
           </button>

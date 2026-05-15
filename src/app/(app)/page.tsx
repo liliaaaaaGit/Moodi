@@ -6,7 +6,6 @@ import { TodaySparkline } from "@/components/TodaySparkline";
 import { Card } from "@/components/Card";
 import { HeutePwaExtras } from "@/components/HeutePwaExtras";
 import { SettingsLink } from "@/components/SettingsLink";
-import { getGreeting } from "@/lib/date/berlin";
 import { loadHeuteData } from "@/lib/data/heute";
 import { redirect } from "next/navigation";
 
@@ -17,12 +16,12 @@ export default async function HeutePage() {
     redirect("/login");
   }
 
-  const { habits, sparkline, listItems, showCatchUp } = data;
+  const { habits, sparkline, listItems } = data;
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-6 py-8">
       <div className="flex items-start justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-text-primary">{getGreeting()}</h1>
+        <h1 className="text-2xl font-semibold text-text-primary">Huhuuu!</h1>
         <SettingsLink />
       </div>
 
@@ -33,7 +32,7 @@ export default async function HeutePage() {
 
         {habits.length > 0 ? (
           <section className="space-y-3">
-            <SectionHeader>Tagesritual</SectionHeader>
+            <SectionHeader>Habits</SectionHeader>
             {habits.map((habit) => (
               <HabitCard
                 key={habit.id}
@@ -68,21 +67,11 @@ export default async function HeutePage() {
               </div>
             </>
           ) : (
-            <Card>
-              <p className="text-center text-text-secondary">
-                Heute noch kein Check-in.
-              </p>
-            </Card>
+            <p className="text-center text-sm text-text-secondary">
+              Heute noch kein Eintrag.
+            </p>
           )}
         </section>
-
-        {showCatchUp ? (
-          <Card className="border border-accent/30 bg-accent/10 p-4">
-            <p className="text-center text-sm text-text-secondary">
-              Magst du nachholen?
-            </p>
-          </Card>
-        ) : null}
       </div>
     </main>
   );

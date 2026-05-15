@@ -104,7 +104,7 @@ export function VoiceRecorder({ onResult, onError, disabled }: VoiceRecorderProp
 
     const mimeType = getSupportedMimeType();
     if (!mimeType) {
-      onError?.("Sprachaufnahme wird in diesem Browser nicht unterstuetzt.");
+      onError?.("Sprachaufnahme wird in diesem Browser nicht unterstützt.");
       return;
     }
 

@@ -7,7 +7,7 @@ export function NewCheckinCard() {
     <Link href="/checkin" className="block">
       <Card className="flex items-center justify-between gap-4 border border-primary/20 bg-primary/5 p-6 transition-opacity hover:opacity-95">
         <div>
-          <p className="text-xl font-semibold text-text-primary">Neuer Check-in</p>
+          <p className="text-xl font-semibold text-text-primary">Anspannung</p>
           <p className="mt-1 text-sm text-text-secondary">
             Wie ist es gerade?
           </p>

@@ -8,7 +8,7 @@ import { useRef } from "react";
 
 const tabs = [
   { href: "/", label: "Heute", icon: Sun, center: false },
-  { href: "/checkin", label: "Check-in", icon: Plus, center: true },
+  { href: "/checkin", label: "Anspannung", icon: Plus, center: true },
   { href: "/history", label: "Verlauf", icon: LineChart, center: false },
   { href: "/skills", label: "Skills", icon: Sparkles, center: false, longPressSettings: true },
 ] as const;
@@ -65,14 +65,7 @@ export function BottomNav() {
                 className="flex -mt-6 flex-col items-center gap-1"
                 aria-current={isActive ? "page" : undefined}
               >
-                <span
-                  className={clsx(
-                    "flex h-14 w-14 items-center justify-center rounded-full shadow-soft transition-colors duration-200 ease-gentle",
-                    isActive
-                      ? "bg-primary text-white"
-                      : "bg-primary/90 text-white"
-                  )}
-                >
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-soft">
                   <Icon className="h-7 w-7" strokeWidth={2.25} aria-hidden />
                 </span>
                 <span

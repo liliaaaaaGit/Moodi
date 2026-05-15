@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   try {
     body = bodySchema.parse(await request.json());
   } catch {
-    return NextResponse.json({ error: "Ungueltige PIN" }, { status: 400 });
+    return NextResponse.json({ error: "Ungültige PIN" }, { status: 400 });
   }
 
   const { data: settings } = await supabase

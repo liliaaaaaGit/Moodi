@@ -105,7 +105,7 @@ export function PushOptIn() {
           <div>
             <p className="font-medium text-text-primary">Erinnerungen aktivieren?</p>
             <p className="mt-1 text-sm text-text-secondary">
-              Sanfte Hinweise zu deinen Check-in-Zeiten — nur auf diesem Geraet.
+              Sanfte Hinweise zu deinen Check-in-Zeiten — nur auf diesem Gerät.
             </p>
           </div>
           {error ? <p className="text-sm text-warning">{error}</p> : null}
@@ -118,7 +118,7 @@ export function PushOptIn() {
               onClick={dismiss}
               className="min-h-touch rounded-2xl px-4 text-sm text-text-secondary underline"
             >
-              Spaeter
+              Später
             </button>
           </div>
         </div>

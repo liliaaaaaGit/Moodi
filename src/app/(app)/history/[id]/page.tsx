@@ -12,9 +12,9 @@ type HistoryDetailPageProps = {
 const FIELDS = [
   { key: "situation", label: "Situation" },
   { key: "gedanken", label: "Gedanken" },
-  { key: "koerper", label: "Koerper" },
-  { key: "gefuehl", label: "Gefuehl" },
-  { key: "beduerfnis", label: "Beduerfnis" },
+  { key: "koerper", label: "Körper" },
+  { key: "gefuehl", label: "Gefühl" },
+  { key: "beduerfnis", label: "Bedürfnis" },
 ] as const;
 
 export default async function HistoryDetailPage({ params }: HistoryDetailPageProps) {
@@ -52,7 +52,7 @@ export default async function HistoryDetailPage({ params }: HistoryDetailPagePro
   return (
     <main className="mx-auto min-h-screen max-w-lg px-6 py-8">
       <Link href="/history" className="text-sm text-primary underline">
-        Zurueck zum Verlauf
+        Zurück zum Verlauf
       </Link>
 
       <h1 className="mt-4 text-2xl font-semibold text-text-primary">

@@ -53,7 +53,7 @@ function AfterContent() {
     }
 
     if (!hilfreich) {
-      setToast("Bitte waehle aus, ob es geholfen hat.");
+      setToast("Bitte wähle aus, ob es geholfen hat.");
       return;
     }
 
@@ -86,7 +86,7 @@ function AfterContent() {
   }
 
   if (initialLoading) {
-    return <p className="py-12 text-center text-text-secondary">Laedt…</p>;
+    return <p className="py-12 text-center text-text-secondary">Lädt…</p>;
   }
 
   if (!checkinId) {
@@ -108,7 +108,7 @@ function AfterContent() {
         href="/"
         className="inline-block text-sm text-text-secondary underline-offset-2 hover:underline"
       >
-        Ueberspringen
+        Überspringen
       </Link>
 
       <div className="mt-8 space-y-8">
@@ -157,7 +157,7 @@ function AfterContent() {
             value={comment}
             onChange={(event) => setComment(event.target.value)}
             rows={3}
-            placeholder="Was hat sich veraendert?"
+            placeholder="Was hat sich verändert?"
             className="w-full resize-none rounded-2xl border border-accent/40 bg-white px-4 py-3 text-sm text-text-primary shadow-soft outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
           />
         </section>
@@ -173,7 +173,7 @@ function AfterContent() {
 export default function AfterPage() {
   return (
     <main className="mx-auto min-h-screen max-w-lg px-6 py-8">
-      <Suspense fallback={<p className="text-text-secondary">Laedt…</p>}>
+      <Suspense fallback={<p className="text-text-secondary">Lädt…</p>}>
         <AfterContent />
       </Suspense>
     </main>

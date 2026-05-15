@@ -75,7 +75,7 @@ export async function PATCH(request: Request) {
   try {
     body = patchSchema.parse(await request.json());
   } catch {
-    return NextResponse.json({ error: "Ungueltige Eingabe" }, { status: 400 });
+    return NextResponse.json({ error: "Ungültige Eingabe" }, { status: 400 });
   }
 
   const updates: Record<string, unknown> = {};
@@ -95,7 +95,7 @@ export async function PATCH(request: Request) {
   }
 
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: "Keine Aenderungen" }, { status: 400 });
+    return NextResponse.json({ error: "Keine Änderungen" }, { status: 400 });
   }
 
   const { data: existing } = await supabase

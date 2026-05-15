@@ -25,7 +25,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     body = habitSchema.parse(await request.json());
   } catch {
-    return NextResponse.json({ error: "Ungueltige Eingabe" }, { status: 400 });
+    return NextResponse.json({ error: "Ungültige Eingabe" }, { status: 400 });
   }
 
   const { data, error } = await supabase
@@ -65,7 +65,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     .eq("user_id", user.id);
 
   if (error) {
-    return NextResponse.json({ error: "Habit konnte nicht geloescht werden" }, { status: 500 });
+    return NextResponse.json({ error: "Habit konnte nicht gelöscht werden" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

@@ -71,7 +71,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     body = patchSchema.parse(await request.json());
   } catch {
-    return NextResponse.json({ error: "Ungueltige Eingabe" }, { status: 400 });
+    return NextResponse.json({ error: "Ungültige Eingabe" }, { status: 400 });
   }
 
   const updates: Record<string, unknown> = {};

@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   try {
     body = bodySchema.parse(await request.json());
   } catch {
-    return NextResponse.json({ error: "Ungueltige Subscription" }, { status: 400 });
+    return NextResponse.json({ error: "Ungültige Subscription" }, { status: 400 });
   }
 
   const { data: existing } = await supabase

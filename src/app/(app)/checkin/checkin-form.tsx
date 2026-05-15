@@ -67,7 +67,7 @@ export function CheckinForm() {
 
       setToast("Auswertung fehlgeschlagen. Bitte versuche es erneut.");
     } catch {
-      setToast("Netzwerkfehler. Bitte pruefe deine Verbindung.");
+      setToast("Netzwerkfehler. Bitte prüfe deine Verbindung.");
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,7 @@ export function CheckinForm() {
             value={text}
             onChange={(event) => setText(event.target.value)}
             rows={5}
-            placeholder='z.B. "Ich sitze im Buero, Kopf drueckt, Deadline morgen, fuehle mich ueberfordert."'
+            placeholder="..."
             className="w-full resize-none rounded-2xl border border-accent/40 bg-white px-4 py-4 text-base text-text-primary shadow-soft outline-none transition-colors duration-200 ease-gentle placeholder:text-text-secondary/70 focus:border-primary focus:ring-2 focus:ring-primary/30"
           />
         </div>

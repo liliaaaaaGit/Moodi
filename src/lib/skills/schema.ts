@@ -11,7 +11,7 @@ export const skillFormSchema = z
     aktiv: z.boolean().optional(),
   })
   .refine((data) => data.level_min <= data.level_max, {
-    message: "Level-Min darf nicht groesser als Level-Max sein",
+    message: "Level-Min darf nicht größer als Level-Max sein",
     path: ["level_max"],
   });
 

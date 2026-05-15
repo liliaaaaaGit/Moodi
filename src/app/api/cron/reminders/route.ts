@@ -52,7 +52,7 @@ export async function GET(request: Request) {
   const slotParam = searchParams.get("slot");
 
   if (!isValidReminderSlot(slotParam)) {
-    return NextResponse.json({ error: "Ungueltiger slot" }, { status: 400 });
+    return NextResponse.json({ error: "Ungültiger slot" }, { status: 400 });
   }
 
   const slot = slotParam as ReminderSlot;

@@ -41,25 +41,3 @@ export function formatBerlinTime(isoDate: string): string {
   }).format(new Date(isoDate));
 }
 
-export function getGreeting(): string {
-  const hour = getBerlinHour();
-  if (hour < 12) return "Guten Morgen";
-  if (hour < 18) return "Schoenen Mittag";
-  return "Schoenen Abend";
-}
-
-export function shouldShowCatchUpReminder(
-  checkinsToday: { created_at: string }[]
-): boolean {
-  const { totalMinutes } = getBerlinTimeParts();
-  if (totalMinutes <= 11 * 60) return false;
-
-  const hasMorningEntry = checkinsToday.some((checkin) => {
-    const { totalMinutes: checkinMinutes } = getBerlinTimeParts(
-      new Date(checkin.created_at)
-    );
-    return checkinMinutes < 11 * 60;
-  });
-
-  return !hasMorningEntry;
-}

@@ -50,7 +50,7 @@ export function HistoryLineChart({ data, onPointSelect }: HistoryLineChartProps)
   if (data.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-text-secondary">
-        Keine Daten fuer diesen Zeitraum.
+        Keine Daten für diesen Zeitraum.
       </p>
     );
   }

@@ -123,7 +123,7 @@ export function SettingsClient() {
       return;
     }
     if (newPin !== confirmPin) {
-      setMessage("PIN und Bestaetigung stimmen nicht ueberein");
+      setMessage("PIN und Bestätigung stimmen nicht überein");
       return;
     }
     const ok = await saveSettings({ pin: newPin });
@@ -229,7 +229,7 @@ export function SettingsClient() {
   }
 
   if (loading) {
-    return <p className="py-12 text-center text-text-secondary">Laedt Einstellungen…</p>;
+    return <p className="py-12 text-center text-text-secondary">Lädt Einstellungen…</p>;
   }
 
   return (
@@ -244,7 +244,7 @@ export function SettingsClient() {
         <SectionHeader>PIN-Lock</SectionHeader>
         <Card className="space-y-4">
           <label className="flex items-center justify-between gap-4">
-            <span className="text-text-primary">PIN beim Oeffnen abfragen</span>
+            <span className="text-text-primary">PIN beim Öffnen abfragen</span>
             <input
               type="checkbox"
               checked={pinEnabled}
@@ -267,7 +267,7 @@ export function SettingsClient() {
                 type="password"
                 inputMode="numeric"
                 maxLength={4}
-                placeholder="PIN bestaetigen"
+                placeholder="PIN bestätigen"
                 value={confirmPin}
                 onChange={(e) =>
                   setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 4))
@@ -313,7 +313,7 @@ export function SettingsClient() {
             onClick={addContact}
             className="flex min-h-touch w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-accent/50 text-text-secondary"
           >
-            <Plus className="h-5 w-5" /> Kontakt hinzufuegen
+            <Plus className="h-5 w-5" /> Kontakt hinzufügen
           </button>
           <PrimaryButton type="button" onClick={handleSaveContacts} disabled={saving}>
             Kontakte speichern
@@ -340,7 +340,7 @@ export function SettingsClient() {
             </label>
           ))}
           <p className="text-xs text-text-secondary">
-            Erinnerungen funktionieren nur, wenn App zum Home-Bildschirm hinzugefuegt wurde.
+            Erinnerungen funktionieren nur, wenn App zum Home-Bildschirm hinzugefügt wurde.
           </p>
           <PrimaryButton type="button" onClick={handleSaveReminders} disabled={saving}>
             Zeiten speichern
@@ -412,7 +412,7 @@ export function SettingsClient() {
                       onClick={() => deleteHabit(habit.id)}
                       className="inline-flex items-center gap-1 text-sm text-warning"
                     >
-                      <Trash2 className="h-3 w-3" /> Loeschen
+                      <Trash2 className="h-3 w-3" /> Löschen
                     </button>
                   </div>
                 </>
@@ -444,7 +444,7 @@ export function SettingsClient() {
               className={inputClass}
             />
             <PrimaryButton type="button" onClick={handleAddHabit} disabled={saving}>
-              Habit hinzufuegen
+              Habit hinzufügen
             </PrimaryButton>
           </div>
         </Card>

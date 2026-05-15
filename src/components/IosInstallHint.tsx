@@ -31,7 +31,7 @@ export function IosInstallHint() {
       <button
         type="button"
         className="fixed inset-0 z-40 bg-black/30"
-        aria-label="Hinweis schliessen"
+        aria-label="Hinweis schließen"
         onClick={close}
       />
       <div
@@ -42,13 +42,13 @@ export function IosInstallHint() {
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id="ios-install-title" className="text-lg font-semibold text-text-primary">
-            Tipp fuer iPhone
+            Tipp für iPhone
           </h2>
           <button
             type="button"
             onClick={close}
             className="flex h-10 w-10 items-center justify-center rounded-full text-text-secondary"
-            aria-label="Schliessen"
+            aria-label="Schließen"
           >
             <X className="h-5 w-5" />
           </button>

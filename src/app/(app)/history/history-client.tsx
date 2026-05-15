@@ -84,7 +84,7 @@ export function HistoryClient() {
       </div>
 
       {loading ? (
-        <p className="mt-12 text-center text-text-secondary">Laedt Verlauf…</p>
+        <p className="mt-12 text-center text-text-secondary">Lädt Verlauf…</p>
       ) : data ? (
         <div className="mt-8 space-y-8">
           <Card className="p-4">

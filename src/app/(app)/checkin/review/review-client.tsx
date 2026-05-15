@@ -12,9 +12,9 @@ import type { CheckinRecord, SkillSummary } from "@/lib/checkin/types";
 const FIELD_LABELS: { key: keyof CheckinRecord; label: string }[] = [
   { key: "situation", label: "Situation" },
   { key: "gedanken", label: "Gedanken" },
-  { key: "koerper", label: "Koerper" },
-  { key: "gefuehl", label: "Gefuehl" },
-  { key: "beduerfnis", label: "Beduerfnis" },
+  { key: "koerper", label: "Körper" },
+  { key: "gefuehl", label: "Gefühl" },
+  { key: "beduerfnis", label: "Bedürfnis" },
 ];
 
 async function patchCheckin(
@@ -125,7 +125,7 @@ export function ReviewClient() {
 
   if (loading) {
     return (
-      <p className="py-12 text-center text-text-secondary">Laedt Auswertung…</p>
+      <p className="py-12 text-center text-text-secondary">Lädt Auswertung…</p>
     );
   }
 

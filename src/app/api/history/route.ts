@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const parsed = rangeSchema.safeParse(searchParams.get("range") ?? "week");
   if (!parsed.success) {
-    return NextResponse.json({ error: "Ungueltiger Zeitraum" }, { status: 400 });
+    return NextResponse.json({ error: "Ungültiger Zeitraum" }, { status: 400 });
   }
 
   const range = parsed.data as HistoryRange;

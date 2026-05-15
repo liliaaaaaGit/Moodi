@@ -1,7 +1,7 @@
 import { LoginForm } from "@/app/login/login-form";
 
 const ERROR_MESSAGES: Record<string, string> = {
-  auth: "Anmeldung fehlgeschlagen. Bitte pruefe E-Mail und Passwort.",
+  auth: "Anmeldung fehlgeschlagen. Bitte prüfe E-Mail und Passwort.",
   not_allowed: "Diese E-Mail ist nicht freigegeben.",
   setup: "Dein Konto konnte nicht eingerichtet werden. Bitte versuche es erneut.",
 };
