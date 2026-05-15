@@ -3,25 +3,76 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-bg: #f5f8fc;
+  --color-surface: #ffffff;
+  --color-primary: #7ba7c9;
+  --color-accent: #a8c5da;
+  --color-text-primary: #1e2a38;
+  --color-text-secondary: #6b7a8c;
+  --color-warning: #c97b7b;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    @apply bg-bg text-text-primary font-sans antialiased;
   }
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* Level-Slider: Pastell-Blau links → dezentes Terrakotta rechts */
+.level-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    #dbe9f4 0%,
+    #e8ddd6 55%,
+    #e8cfc8 100%
+  );
+  outline: none;
+}
+
+.level-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  border: 3px solid #ffffff;
+  background: #7ba7c9;
+  box-shadow: 0 4px 16px rgba(30, 42, 56, 0.15);
+  cursor: grab;
+}
+
+.level-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.04);
+}
+
+.level-slider::-moz-range-thumb {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  border: 3px solid #ffffff;
+  background: #7ba7c9;
+  box-shadow: 0 4px 16px rgba(30, 42, 56, 0.15);
+  cursor: grab;
+}
+
+.level-slider::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    #dbe9f4 0%,
+    #e8ddd6 55%,
+    #e8cfc8 100%
+  );
 }
