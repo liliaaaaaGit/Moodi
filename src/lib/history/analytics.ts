@@ -273,13 +273,11 @@ export function buildHistoryAnalytics(
   };
 }
 
+/** Blau-Verlauf für Heatmap-Zellen (kein Rot). */
 export function heatmapColor(avgLevel: number | null): string {
-  if (avgLevel === null) return "#f5f8fc";
-  const t = Math.min(1, Math.max(0, avgLevel / 10));
-  const low = { r: 219, g: 233, b: 244 };
-  const high = { r: 201, g: 123, b: 123 };
-  const r = Math.round(low.r + (high.r - low.r) * t);
-  const g = Math.round(low.g + (high.g - low.g) * t);
-  const b = Math.round(low.b + (high.b - low.b) * t);
-  return `rgb(${r}, ${g}, ${b})`;
+  if (avgLevel === null) return "#F5F8FC";
+  if (avgLevel <= 3) return "#EAF2F9";
+  if (avgLevel <= 5) return "#C5D8E5";
+  if (avgLevel <= 8) return "#7BA7C9";
+  return "#3D5F7A";
 }

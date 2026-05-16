@@ -97,7 +97,7 @@ export function HistoryClient() {
             </div>
           </Card>
 
-          <Card className="p-4">
+          <Card className="p-5">
             <SectionHeader>Wann ist die Anspannung hoch?</SectionHeader>
             <div className="mt-4">
               <HistoryHeatmap cells={data.heatmap} weekdayLabels={data.weekdayLabels} />
