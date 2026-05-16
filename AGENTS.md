@@ -34,3 +34,10 @@ CODE-STIL: Server Components by default,
 "use client" nur wo
 noetig, async/await, klare Komponenten, keine over-engineerten
 Abstraktionen.
+PWA PUSH (Vercel ENV):
+- NEXT_PUBLIC_VAPID_PUBLIC_KEY — oeffentlicher VAPID-Key, im Browser
+  (PushOptIn / pushManager.subscribe); nach Aenderung neu deployen.
+- VAPID_PRIVATE_KEY — nur Server (Cron / web-push senden).
+- VAPID_SUBJECT — z.B. mailto:…
+- CRON_SECRET — Absicherung von /api/cron/reminders
+- Kein VAPID_PUBLIC_KEY ohne NEXT_PUBLIC_ — wird im Client nicht gelesen.

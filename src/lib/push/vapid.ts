@@ -4,8 +4,9 @@ function clean(value: string | undefined) {
   return value?.trim().replace(/^["']|["']$/g, "");
 }
 
+/** Server-seitig: bevorzugt NEXT_PUBLIC_ (gleicher Wert wie im Browser). */
 export function getVapidPublicKey(): string | undefined {
-  return clean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) ?? clean(process.env.VAPID_PUBLIC_KEY);
+  return clean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
 }
 
 export function getVapidPrivateKey(): string | undefined {

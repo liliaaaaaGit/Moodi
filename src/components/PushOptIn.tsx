@@ -5,12 +5,16 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import {
+  getClientVapidPublicKey,
   hasPushBeenAsked,
   isStandalonePwa,
   markPushAsked,
   markPushDismissed,
   subscribeToPush,
 } from "@/lib/push/client";
+
+const VAPID_CONFIG_ERROR =
+  "Push ist nicht konfiguriert: NEXT_PUBLIC_VAPID_PUBLIC_KEY fehlt. Bitte in Vercel setzen und die App neu deployen.";
 
 export function PushOptIn() {
   const [visible, setVisible] = useState(false);
@@ -22,11 +26,15 @@ export function PushOptIn() {
     if (hasPushBeenAsked()) return;
     if (!("Notification" in window) || !("PushManager" in window)) return;
 
+    const publicKey = getClientVapidPublicKey();
+    console.log("VAPID key length:", publicKey?.length);
+
     async function checkExisting() {
       try {
         const response = await fetch("/api/settings");
         if (!response.ok) {
           setVisible(true);
+          if (!publicKey) setError(VAPID_CONFIG_ERROR);
           return;
         }
         const payload = await response.json();
@@ -35,8 +43,10 @@ export function PushOptIn() {
           return;
         }
         setVisible(true);
+        if (!publicKey) setError(VAPID_CONFIG_ERROR);
       } catch {
         setVisible(true);
+        if (!publicKey) setError(VAPID_CONFIG_ERROR);
       }
     }
 
@@ -47,14 +57,16 @@ export function PushOptIn() {
     setLoading(true);
     setError(null);
 
-    try {
-      const vapidRes = await fetch("/api/push/vapid-public-key");
-      const { publicKey } = await vapidRes.json();
-      if (!publicKey) {
-        setError("Push ist noch nicht konfiguriert.");
-        return;
-      }
+    const publicKey = getClientVapidPublicKey();
+    console.log("VAPID key length:", publicKey?.length);
 
+    if (!publicKey) {
+      setError(VAPID_CONFIG_ERROR);
+      setLoading(false);
+      return;
+    }
+
+    try {
       const permission = await Notification.requestPermission();
       markPushAsked();
 
@@ -110,7 +122,11 @@ export function PushOptIn() {
           </div>
           {error ? <p className="text-sm text-warning">{error}</p> : null}
           <div className="flex flex-wrap gap-2">
-            <PrimaryButton type="button" onClick={enablePush} disabled={loading}>
+            <PrimaryButton
+              type="button"
+              onClick={enablePush}
+              disabled={loading || !getClientVapidPublicKey()}
+            >
               {loading ? "Bitte warten…" : "Ja, erinnern"}
             </PrimaryButton>
             <button

@@ -39,6 +39,15 @@ export function dismissIosInstallHint() {
   localStorage.setItem("iosInstallHintDismissed", "1");
 }
 
+function cleanEnv(value: string | undefined) {
+  return value?.trim().replace(/^["']|["']$/g, "");
+}
+
+/** Nur im Browser verfügbar — muss NEXT_PUBLIC_ in Vercel heißen. */
+export function getClientVapidPublicKey(): string | undefined {
+  return cleanEnv(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
+}
+
 export function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -51,6 +60,11 @@ export function urlBase64ToUint8Array(base64String: string) {
 }
 
 export async function subscribeToPush(vapidPublicKey: string): Promise<PushSubscription | null> {
+  if (!vapidPublicKey) {
+    console.error("subscribeToPush: VAPID public key fehlt");
+    return null;
+  }
+
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
     return null;
   }
