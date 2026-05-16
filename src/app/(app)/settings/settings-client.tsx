@@ -285,38 +285,44 @@ export function SettingsClient() {
         </Card>
       </section>
 
-      <section className="space-y-3">
+      <section className="min-w-0 space-y-3">
         <SectionHeader>Notfallkontakte</SectionHeader>
-        <Card className="space-y-3">
+        <Card className="min-w-0 space-y-3 overflow-hidden p-4">
           {contacts.map((contact, index) => (
-            <div key={index} className="space-y-2 rounded-xl bg-bg p-3">
-              <input
-                placeholder="Name"
-                value={contact.name}
-                onChange={(e) => updateContact(index, "name", e.target.value)}
-                className={inputClass}
-              />
-              <input
-                placeholder="Telefon"
-                value={contact.phone}
-                onChange={(e) => updateContact(index, "phone", e.target.value)}
-                className={inputClass}
-              />
-              <button
-                type="button"
-                onClick={() => removeContact(index)}
-                className="text-sm text-warning"
-              >
-                Entfernen
-              </button>
+            <div key={index} className="min-w-0 max-w-full rounded-xl bg-bg p-3">
+              <div className="flex min-w-0 items-start gap-2">
+                <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
+                  <input
+                    placeholder="Name"
+                    value={contact.name}
+                    onChange={(e) => updateContact(index, "name", e.target.value)}
+                    className={inputClass}
+                  />
+                  <input
+                    placeholder="Telefon"
+                    type="tel"
+                    value={contact.phone}
+                    onChange={(e) => updateContact(index, "phone", e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeContact(index)}
+                  aria-label="Kontakt entfernen"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-warning transition-colors hover:bg-warning/10"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ))}
           <button
             type="button"
             onClick={addContact}
-            className="flex min-h-touch w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-accent/50 text-text-secondary"
+            className="flex min-h-touch w-full max-w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-accent/50 text-text-secondary"
           >
-            <Plus className="h-5 w-5" /> Kontakt hinzufügen
+            <Plus className="h-5 w-5 shrink-0" /> Kontakt hinzufügen
           </button>
           <PrimaryButton type="button" onClick={handleSaveContacts} disabled={saving}>
             Kontakte speichern
@@ -478,4 +484,4 @@ export function SettingsClient() {
 }
 
 const inputClass =
-  "w-full rounded-2xl border border-accent/40 bg-white px-4 py-3 text-text-primary shadow-soft outline-none focus:border-primary focus:ring-2 focus:ring-primary/30";
+  "box-border min-w-0 max-w-full w-full truncate rounded-2xl border border-accent/40 bg-white px-4 py-3 text-text-primary shadow-soft outline-none focus:border-primary focus:ring-2 focus:ring-primary/30";
