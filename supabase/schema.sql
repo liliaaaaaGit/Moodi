@@ -14,6 +14,7 @@ dauer_minuten int,
 level_min int not null check (level_min between 0 and 10),
 level_max int not null check (level_max between 0 and 10),
 beschreibung text,
+ist_lang boolean default false,
 aktiv boolean default true,
 created_at timestamptz default now()
 );
@@ -26,9 +27,19 @@ level_before int not null check (level_before between 0 and 10),
 input_raw text,
 situation text, gedanken text, koerper text,
 gefuehl text, beduerfnis text,
-suggested_skill_id uuid references skills(id),
-chosen_skill_id uuid references skills(id),
+suggested_skill_id uuid references skills(id) on delete set null,
+chosen_skill_id uuid references skills(id) on delete set null,
 skill_status text check (skill_status in
+('gemacht'
+,
+'nicht_gemacht'
+,
+'anderer'
+,
+'uebersprungen')),
+suggested_long_skill_id uuid references skills(id) on delete set null,
+chosen_long_skill_id uuid references skills(id) on delete set null,
+long_skill_status text check (long_skill_status in
 ('gemacht'
 ,
 'nicht_gemacht'
@@ -43,7 +54,8 @@ hilfreich text check (hilfreich in ('ja'
 ,
 'nein')),
 comment text,
-crisis_flag boolean default false
+crisis_flag boolean default false,
+svv_flag boolean default false
 );
 -- Settings
 create table settings (
@@ -115,77 +127,64 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into skills (user_id, name, kategorie, dauer_minuten, level_min, level_max)
+  insert into skills (user_id, name, kategorie, dauer_minuten, level_min, level_max, ist_lang, aktiv)
   values
-    -- Reflexion & Ressourcen (0-3)
-    (p_user_id, 'Drei gute Dinge heute aufschreiben', 'reflexion', 5, 0, 3),
-    (p_user_id, 'Dankbarkeits-Mini: 1 Sache benennen', 'reflexion', 2, 0, 3),
-    (p_user_id, 'Tee oder Wasser bewusst trinken', 'ressource', 5, 0, 3),
-    (p_user_id, 'Ressourcen-Check: Was hat heute Energie gegeben?', 'reflexion', 5, 0, 3),
-    (p_user_id, 'Morgen-Priorität festlegen', 'planung', 5, 0, 3),
-    (p_user_id, 'Lieblingsmusik bewusst hören (1 Lied)', 'ressource', 5, 0, 3),
-    (p_user_id, 'Body-Scan kurz', 'reflexion', 5, 0, 3),
-    (p_user_id, 'Fenster auf, 1 Minute atmen', 'atem', 2, 0, 3),
-    -- Kognitive Entlastung (4-6)
-    (p_user_id, 'Brain-Dump 5 Minuten', 'entlastung', 5, 4, 6),
-    (p_user_id, 'To-do-Sortierung Muss/Soll/Kann', 'entlastung', 10, 4, 6),
-    (p_user_id, '2-Minuten-Regel: kleinste nächste Aufgabe', 'aktivierung', 2, 4, 6),
-    (p_user_id, 'Eine Sache erledigen, eine streichen', 'entlastung', 10, 4, 6),
-    (p_user_id, 'Gedanken-Check: Ist das wirklich so?', 'kognitiv', 5, 4, 6),
-    (p_user_id, 'Bedürfnis-Check', 'reflexion', 5, 4, 6),
-    (p_user_id, 'Tagesstruktur-Reset (nächste 2h planen)', 'planung', 5, 4, 6),
-    (p_user_id, 'Mini-Aufräumen: 5 Minuten Schreibtisch', 'aktivierung', 5, 4, 6),
-    (p_user_id, 'Sprachnachricht an Vertrauensperson', 'sozial', 5, 4, 6),
-    -- Atem & Grounding (4-8)
-    (p_user_id, '4-7-8-Atmung (3 Runden)', 'atem', 2, 4, 8),
-    (p_user_id, 'Box-Breathing 4-4-4-4', 'atem', 3, 4, 8),
-    (p_user_id, '5-4-3-2-1-Sinne', 'grounding', 3, 4, 8),
-    (p_user_id, 'Gegenstand genau beschreiben', 'grounding', 3, 4, 8),
-    -- Bewegung & Sport
-    (p_user_id, 'Joggen oder zügig spazieren', 'bewegung', 20, 3, 7),
-    (p_user_id, 'Yoga-Einheit (kurz)', 'bewegung', 15, 3, 7),
-    (p_user_id, 'Schwimmen gehen', 'bewegung', 45, 3, 6),
-    (p_user_id, 'Radfahren', 'bewegung', 30, 3, 7),
-    (p_user_id, 'Wandern', 'bewegung', 90, 3, 6),
-    (p_user_id, 'Tennis oder Padel mit Freund:in', 'bewegung', 60, 3, 6),
-    (p_user_id, 'Sport mit Freunden (allgemein)', 'bewegung', 60, 3, 7),
-    (p_user_id, '10-Minuten-Workout zu Hause', 'bewegung', 10, 4, 7),
-    (p_user_id, 'Spazieren mit Freund:in', 'bewegung', 30, 3, 7),
-    -- Koerpernahe Regulation (7-8)
-    (p_user_id, 'Kaltes Wasser ins Gesicht', 'koerper', 1, 7, 8),
-    (p_user_id, 'Eiswürfel in der Hand halten', 'koerper', 1, 7, 8),
-    (p_user_id, 'Kalte Dusche 30 Sekunden', 'koerper', 2, 7, 8),
-    (p_user_id, '60 Sekunden intensive Bewegung', 'koerper', 1, 7, 8),
-    (p_user_id, 'Wand kraftvoll drücken', 'koerper', 1, 7, 8),
-    (p_user_id, 'Scharfes Bonbon oder Ingwer', 'koerper', 2, 7, 8),
-    (p_user_id, 'Butterfly Hug', 'grounding', 3, 7, 8),
-    -- Umgebungswechsel (7-10)
-    (p_user_id, 'Auto fahren, kurze Strecke', 'umgebungswechsel', 30, 7, 10),
-    (p_user_id, 'Raus, frische Luft, Umgebungswechsel', 'umgebungswechsel', 20, 7, 10),
-    (p_user_id, 'Nach Dachau (Schloss/Aussichtsplattform)', 'umgebungswechsel', 60, 7, 10),
-    -- Selbstberuhigung (4-8)
-    (p_user_id, 'Lieblingstee in Lieblingsbecher, bewusst trinken', 'beruhigung', 10, 4, 8),
-    (p_user_id, 'Weiche Decke + Lieblingssong', 'beruhigung', 10, 4, 8),
-    (p_user_id, 'Hand auf Brust, langsam atmen', 'beruhigung', 2, 4, 8),
-    (p_user_id, 'Selbstmitgefühlspause', 'beruhigung', 3, 4, 8),
-    (p_user_id, 'Warme Dusche', 'beruhigung', 10, 4, 8),
-    (p_user_id, 'Lieblingsduft riechen', 'beruhigung', 2, 4, 8),
-    -- Aktivierung (4-7)
-    (p_user_id, '5 Minuten an die frische Luft', 'aktivierung', 5, 4, 7),
-    (p_user_id, '1 Lied tanzen', 'aktivierung', 3, 4, 7),
-    (p_user_id, 'Wäsche aufhängen oder Geschirr spülen', 'aktivierung', 10, 4, 7),
-    (p_user_id, 'Aus dem Bett: Füße auf den Boden, 5 Min sitzen', 'aktivierung', 5, 4, 7),
-    (p_user_id, 'Wasser trinken, ein Glas', 'aktivierung', 1, 4, 7),
-    (p_user_id, 'Fenster auf, durchatmen', 'aktivierung', 2, 4, 7),
-    -- Reizreduktion (5-8)
-    (p_user_id, 'Pink Noise oder weißes Rauschen', 'reizreduktion', 10, 5, 8),
-    (p_user_id, 'Abgedunkelter Raum, 10 Min', 'reizreduktion', 10, 5, 8),
-    (p_user_id, 'Handy in anderes Zimmer', 'reizreduktion', 1, 5, 8),
-    (p_user_id, 'Augenmaske auf, 5 Min', 'reizreduktion', 5, 5, 8),
-    (p_user_id, 'Alle Tabs schließen, nur ein Fenster', 'reizreduktion', 2, 5, 8),
-    -- Krisenmodus (9-10)
-    (p_user_id, 'TIPP: Eis ins Gesicht + langsames Ausatmen + Muskeln an/aus', 'krise', 5, 9, 10),
-    (p_user_id, 'Telefonseelsorge 0800 111 0 111 anrufen', 'krise', 30, 9, 10)
+    -- Körper & Reize
+    (p_user_id, 'Wasser trinken', 'körper', 1, 4, 5, false, true),
+    (p_user_id, 'Kaltes Wasser ins Gesicht', 'körper', 1, 7, 9, false, true),
+    (p_user_id, 'Warme Dusche', 'körper', 10, 7, 8, false, true),
+    (p_user_id, 'Nagelmatte', 'körper', 10, 7, 8, false, true),
+    (p_user_id, 'Tigerbalsam', 'körper', 2, 7, 8, false, true),
+    (p_user_id, 'Mango unter der Dusche essen', 'körper', 10, 7, 9, false, true),
+    (p_user_id, 'Schwere Decke & Dunkelheit', 'körper', 10, 7, 9, false, true),
+    (p_user_id, 'Luft 3min anhalten', 'körper', 3, 8, 10, false, true),
+    (p_user_id, 'Muskeln anspannen / entspannen', 'körper', 5, 7, 9, false, true),
+    -- Atem & Grounding
+    (p_user_id, 'Fenster auf, durchatmen', 'atem', 2, 4, 6, false, true),
+    (p_user_id, 'Body Scan', 'grounding', 5, 6, 7, false, true),
+    (p_user_id, '5-4-3-2-1 Sinne', 'grounding', 3, 6, 7, false, true),
+    (p_user_id, 'Hand auf Brust, langsam atmen, fühlen', 'atem', 3, 6, 9, false, true),
+    (p_user_id, '4-7-8 Atmung (3 Runden)', 'atem', 2, 6, 8, false, true),
+    (p_user_id, 'Box-Breathing', 'atem', 3, 6, 8, false, true),
+    -- Bewegung & Aktivierung
+    (p_user_id, '5 Minuten an die frische Luft', 'bewegung', 5, 4, 6, false, true),
+    (p_user_id, '10 min aufräumen', 'aktivierung', 10, 4, 6, false, true),
+    (p_user_id, '5 min in die Sonne legen und atmen', 'aktivierung', 5, 6, 7, false, true),
+    (p_user_id, 'Jonglieren', 'bewegung', 5, 4, 7, false, true),
+    -- Kognitive Entlastung
+    (p_user_id, 'Bedürfnis-Check', 'kognitiv', 5, 4, 6, false, true),
+    (p_user_id, 'To-Dos', 'kognitiv', 10, 5, 7, false, true),
+    (p_user_id, 'Brain-Dump (5min)', 'kognitiv', 5, 6, 7, false, true),
+    (p_user_id, 'Sich den Feind in einer löchrigen Unterhose vorstellen', 'kognitiv', 2, 7, 8, false, true),
+    -- Selbstberuhigung & Verbindung
+    (p_user_id, 'Self Care', 'beruhigung', 10, 4, 6, false, true),
+    (p_user_id, 'Elli knuddeln', 'beruhigung', 5, 4, 6, false, true),
+    (p_user_id, 'Hug', 'beruhigung', 2, 7, 8, false, true),
+    (p_user_id, 'Klavier spielen', 'beruhigung', 15, 5, 10, false, true),
+    -- Umgebungswechsel
+    (p_user_id, 'Auto fahren', 'umgebungswechsel', 30, 7, 10, false, true),
+    (p_user_id, 'Raus, frische Luft, Umgebungswechsel', 'umgebungswechsel', 20, 8, 10, false, true),
+    (p_user_id, 'Dachau Schloss', 'umgebungswechsel', 60, 9, 10, false, true),
+    -- SVV-spezifisch (NUR bei explizitem SVV-Trigger, NIE als Default)
+    (p_user_id, 'Arm bemalen', 'svv', 5, 1, 10, false, true),
+    -- Lange Skills (ist_lang = true)
+    (p_user_id, 'Mandala / Malen', 'lang', 45, 2, 8, true, true),
+    (p_user_id, 'Badespaß mit Elli', 'lang', 30, 2, 8, true, true),
+    (p_user_id, 'Walk', 'lang', 30, 2, 8, true, true),
+    (p_user_id, 'Sauna / Spa', 'lang', 90, 2, 8, true, true),
+    (p_user_id, 'Blumen pflücken gehen', 'lang', 45, 2, 8, true, true),
+    (p_user_id, 'Erdbeeren pflücken gehen', 'lang', 60, 2, 8, true, true),
+    (p_user_id, 'Sport mit Friends (Squash, Tennis, Wakeboarden)', 'lang', 90, 2, 8, true, true),
+    (p_user_id, 'Cafe trinken gehen', 'lang', 45, 2, 8, true, true),
+    (p_user_id, 'An See fahren', 'lang', 120, 2, 8, true, true),
+    (p_user_id, 'Schwimmen gehen', 'lang', 60, 2, 8, true, true),
+    (p_user_id, 'Freediving', 'lang', 90, 2, 8, true, true),
+    (p_user_id, 'SUP', 'lang', 90, 2, 8, true, true),
+    (p_user_id, 'Eiscafé in der Sonne trinken', 'lang', 45, 2, 8, true, true),
+    (p_user_id, 'Wald', 'lang', 60, 2, 8, true, true),
+    (p_user_id, 'Film schauen mit Snacks', 'lang', 120, 2, 8, true, true),
+    (p_user_id, 'Kart fahren', 'lang', 60, 2, 8, true, true),
+    (p_user_id, 'Kino', 'lang', 120, 2, 8, true, true)
   on conflict (user_id, name) do nothing;
 
   insert into habits (user_id, name, beschreibung, target_minutes)
