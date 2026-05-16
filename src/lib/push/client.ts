@@ -59,6 +59,119 @@ export function urlBase64ToUint8Array(base64String: string) {
   return output;
 }
 
+export function getNotificationPermissionLabel():
+  | "granted"
+  | "denied"
+  | "default"
+  | "nicht unterstützt" {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return "nicht unterstützt";
+  }
+  return Notification.permission;
+}
+
+export function getServiceWorkerControllerLabel(): "aktiv" | "nicht registriert" {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+    return "nicht registriert";
+  }
+  return navigator.serviceWorker.controller ? "aktiv" : "nicht registriert";
+}
+
+export async function getBrowserPushSubscription(): Promise<PushSubscription | null> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return null;
+  }
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    return registration.pushManager.getSubscription();
+  } catch {
+    return null;
+  }
+}
+
+export async function unsubscribeFromPush(): Promise<{ ok: boolean; error?: string }> {
+  if (!("serviceWorker" in navigator)) {
+    return { ok: false, error: "Service Worker nicht unterstützt" };
+  }
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (subscription) {
+      await subscription.unsubscribe();
+    }
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unsubscribe fehlgeschlagen";
+    return { ok: false, error: message };
+  }
+}
+
+export async function savePushSubscriptionToServer(
+  subscription: PushSubscription
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subscription: subscription.toJSON() }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      return { ok: false, error: (payload.error as string) ?? "Speichern fehlgeschlagen" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Netzwerkfehler beim Speichern" };
+  }
+}
+
+/** Permission anfragen, subscriben und in DB speichern. */
+export async function subscribeUserToPush(): Promise<{
+  ok: boolean;
+  error?: string;
+  step?: string;
+}> {
+  const publicKey = getClientVapidPublicKey();
+  console.log("VAPID key length:", publicKey?.length);
+
+  if (!publicKey) {
+    return {
+      ok: false,
+      step: "vapid",
+      error: "NEXT_PUBLIC_VAPID_PUBLIC_KEY fehlt (Build/ENV prüfen)",
+    };
+  }
+
+  if (!("Notification" in window) || !("PushManager" in window)) {
+    return { ok: false, step: "api", error: "Push/Notifications nicht unterstützt" };
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") {
+    return {
+      ok: false,
+      step: "permission",
+      error: `Permission: ${permission} (in iOS-Einstellungen prüfen)`,
+    };
+  }
+
+  const subscription = await subscribeToPush(publicKey);
+  if (!subscription) {
+    return {
+      ok: false,
+      step: "subscribe",
+      error: "pushManager.subscribe() fehlgeschlagen (SW aktiv? PWA vom Home-Bildschirm?)",
+    };
+  }
+
+  const saved = await savePushSubscriptionToServer(subscription);
+  if (!saved.ok) {
+    return { ok: false, step: "save", error: saved.error ?? "DB-Speichern fehlgeschlagen" };
+  }
+
+  return { ok: true };
+}
+
 export async function subscribeToPush(vapidPublicKey: string): Promise<PushSubscription | null> {
   if (!vapidPublicKey) {
     console.error("subscribeToPush: VAPID public key fehlt");

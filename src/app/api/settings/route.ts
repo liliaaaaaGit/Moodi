@@ -13,6 +13,7 @@ const patchSchema = z.object({
   disablePin: z.boolean().optional(),
   notfallkontakte: z.array(contactSchema).optional(),
   reminder_times: z.array(z.string().regex(/^\d{2}:\d{2}$/)).length(3).optional(),
+  clearPushSubscription: z.literal(true).optional(),
 });
 
 function parseContacts(raw: unknown) {
@@ -92,6 +93,10 @@ export async function PATCH(request: Request) {
 
   if (body.reminder_times !== undefined) {
     updates.reminder_times = body.reminder_times;
+  }
+
+  if (body.clearPushSubscription) {
+    updates.push_subscription = null;
   }
 
   if (Object.keys(updates).length === 0) {

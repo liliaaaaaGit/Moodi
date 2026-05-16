@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { signOut } from "@/app/actions/auth";
 import { Card } from "@/components/Card";
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { PushDebugSection } from "@/components/settings/PushDebugSection";
 import { SectionHeader } from "@/components/SectionHeader";
 import { UI_FEATURES } from "@/lib/features";
 import { clearPinUnlocked } from "@/lib/pin/storage";
@@ -453,6 +454,8 @@ export function SettingsClient() {
         </Card>
       </section>
       ) : null}
+
+      <PushDebugSection />
 
       <section className="space-y-3">
         <SectionHeader>Daten</SectionHeader>
