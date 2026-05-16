@@ -7,6 +7,7 @@ import { signOut } from "@/app/actions/auth";
 import { Card } from "@/components/Card";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SectionHeader } from "@/components/SectionHeader";
+import { UI_FEATURES } from "@/lib/features";
 import { clearPinUnlocked } from "@/lib/pin/storage";
 
 type Contact = { name: string; phone: string };
@@ -54,12 +55,8 @@ export function SettingsClient() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [settingsRes, habitsRes] = await Promise.all([
-        fetch("/api/settings"),
-        fetch("/api/habits"),
-      ]);
+      const settingsRes = await fetch("/api/settings");
       const settingsPayload = await settingsRes.json();
-      const habitsPayload = await habitsRes.json();
 
       if (settingsRes.ok) {
         const data = settingsPayload as SettingsData;
@@ -67,8 +64,13 @@ export function SettingsClient() {
         setContacts(data.notfallkontakte ?? []);
         setReminderTimes(data.reminder_times ?? ["10:00", "15:00", "21:00"]);
       }
-      if (habitsRes.ok) {
-        setHabits(habitsPayload.habits ?? []);
+
+      if (UI_FEATURES.habits) {
+        const habitsRes = await fetch("/api/habits");
+        const habitsPayload = await habitsRes.json();
+        if (habitsRes.ok) {
+          setHabits(habitsPayload.habits ?? []);
+        }
       }
     } finally {
       setLoading(false);
@@ -348,6 +350,7 @@ export function SettingsClient() {
         </Card>
       </section>
 
+      {UI_FEATURES.habits ? (
       <section className="space-y-3">
         <SectionHeader>Habits (Tagesrituale)</SectionHeader>
         <Card className="space-y-3">
@@ -449,6 +452,7 @@ export function SettingsClient() {
           </div>
         </Card>
       </section>
+      ) : null}
 
       <section className="space-y-3">
         <SectionHeader>Daten</SectionHeader>

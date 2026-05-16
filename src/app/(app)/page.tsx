@@ -7,6 +7,7 @@ import { Card } from "@/components/Card";
 import { HeutePwaExtras } from "@/components/HeutePwaExtras";
 import { SettingsLink } from "@/components/SettingsLink";
 import { loadHeuteData } from "@/lib/data/heute";
+import { UI_FEATURES } from "@/lib/features";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export default async function HeutePage() {
       <div className="mt-4 space-y-8">
         <NewCheckinCard />
 
-        {habits.length > 0 ? (
+        {UI_FEATURES.habits && habits.length > 0 ? (
           <section className="space-y-3">
             <SectionHeader>Habits</SectionHeader>
             {habits.map((habit) => (

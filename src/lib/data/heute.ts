@@ -3,6 +3,7 @@ import {
   getBerlinToday,
   isSameBerlinDay,
 } from "@/lib/date/berlin";
+import { UI_FEATURES } from "@/lib/features";
 import { createClient } from "@/lib/supabase/server";
 
 export type TodayCheckin = {
@@ -40,38 +41,43 @@ export async function loadHeuteData() {
   const today = getBerlinToday();
   const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-  const [checkinsRes, habitsRes, completionsRes] = await Promise.all([
-    supabase
-      .from("checkins")
-      .select("id, created_at, level_before, situation, input_raw")
-      .eq("user_id", user.id)
-      .gte("created_at", since)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("habits")
-      .select("id, name, beschreibung, target_minutes")
-      .eq("user_id", user.id)
-      .eq("aktiv", true)
-      .order("name"),
-    supabase
-      .from("habit_completions")
-      .select("habit_id")
-      .eq("user_id", user.id)
-      .eq("completed_date", today),
-  ]);
+  const checkinsRes = await supabase
+    .from("checkins")
+    .select("id, created_at, level_before, situation, input_raw")
+    .eq("user_id", user.id)
+    .gte("created_at", since)
+    .order("created_at", { ascending: true });
 
   const checkinsToday = (checkinsRes.data ?? []).filter((row) =>
     isSameBerlinDay(row.created_at, today)
   ) as TodayCheckin[];
 
-  const completedIds = new Set(
-    (completionsRes.data ?? []).map((row) => row.habit_id)
-  );
+  let habits: TodayHabit[] = [];
 
-  const habits: TodayHabit[] = (habitsRes.data ?? []).map((habit) => ({
-    ...habit,
-    completed: completedIds.has(habit.id),
-  }));
+  if (UI_FEATURES.habits) {
+    const [habitsRes, completionsRes] = await Promise.all([
+      supabase
+        .from("habits")
+        .select("id, name, beschreibung, target_minutes")
+        .eq("user_id", user.id)
+        .eq("aktiv", true)
+        .order("name"),
+      supabase
+        .from("habit_completions")
+        .select("habit_id")
+        .eq("user_id", user.id)
+        .eq("completed_date", today),
+    ]);
+
+    const completedIds = new Set(
+      (completionsRes.data ?? []).map((row) => row.habit_id)
+    );
+
+    habits = (habitsRes.data ?? []).map((habit) => ({
+      ...habit,
+      completed: completedIds.has(habit.id),
+    }));
+  }
 
   const sparkline = checkinsToday.map((checkin) => ({
     id: checkin.id,

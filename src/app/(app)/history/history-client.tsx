@@ -7,6 +7,7 @@ import { Card } from "@/components/Card";
 import { HistoryHeatmap } from "@/components/history/HistoryHeatmap";
 import { HistoryLineChart, type ChartPoint } from "@/components/history/HistoryLineChart";
 import { SectionHeader } from "@/components/SectionHeader";
+import { UI_FEATURES } from "@/lib/features";
 import type { HistoryRange, TimeBucket } from "@/lib/history/analytics";
 
 type HistoryData = {
@@ -143,35 +144,39 @@ export function HistoryClient() {
             )}
           </section>
 
-          <section className="space-y-3">
-            <SectionHeader>Atem-Ritual diese Woche</SectionHeader>
-            <Card className="p-4">
-              <p className="text-text-primary">
-                <span className="text-2xl font-semibold text-primary">
-                  {data.breathRitual.completedCount}
-                </span>
-                <span className="text-text-secondary"> / 7 Tage</span>
-              </p>
-              <div className="mt-4 flex justify-between gap-2">
-                {data.breathRitual.days.map((day) => (
-                  <div key={day.date} className="flex flex-col items-center gap-1">
-                    <span
-                      className={clsx(
-                        "flex h-8 w-8 items-center justify-center rounded-full border-2",
-                        day.completed
-                          ? "border-primary bg-primary text-white"
-                          : "border-accent/50 bg-white"
-                      )}
-                      aria-label={day.completed ? "Erledigt" : "Offen"}
-                    >
-                      {day.completed ? "✓" : ""}
-                    </span>
-                    <span className="text-[10px] text-text-secondary">{day.label}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </section>
+          {UI_FEATURES.breathRitualHistory ? (
+            <section className="space-y-3">
+              <SectionHeader>Atem-Ritual diese Woche</SectionHeader>
+              <Card className="p-4">
+                <p className="text-text-primary">
+                  <span className="text-2xl font-semibold text-primary">
+                    {data.breathRitual.completedCount}
+                  </span>
+                  <span className="text-text-secondary"> / 7 Tage</span>
+                </p>
+                <div className="mt-4 flex justify-between gap-2">
+                  {data.breathRitual.days.map((day) => (
+                    <div key={day.date} className="flex flex-col items-center gap-1">
+                      <span
+                        className={clsx(
+                          "flex h-8 w-8 items-center justify-center rounded-full border-2",
+                          day.completed
+                            ? "border-primary bg-primary text-white"
+                            : "border-accent/50 bg-white"
+                        )}
+                        aria-label={day.completed ? "Erledigt" : "Offen"}
+                      >
+                        {day.completed ? "✓" : ""}
+                      </span>
+                      <span className="text-[10px] text-text-secondary">
+                        {day.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </section>
+          ) : null}
         </div>
       ) : null}
     </>
