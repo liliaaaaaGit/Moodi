@@ -9,6 +9,7 @@ import { HistoryLineChart, type ChartPoint } from "@/components/history/HistoryL
 import { SectionHeader } from "@/components/SectionHeader";
 import { UI_FEATURES } from "@/lib/features";
 import type { HistoryRange, TimeBucket } from "@/lib/history/analytics";
+import { topTriggersSectionTitle } from "@/lib/history/analytics";
 
 type HistoryData = {
   range: HistoryRange;
@@ -21,7 +22,7 @@ type HistoryData = {
     avgLevel: number | null;
     count: number;
   }[];
-  topTriggers: { word: string; count: number }[];
+  topTriggers: { label: string; count: number }[];
   helpfulSkills: { name: string; count: number }[];
   breathRitual: {
     days: { date: string; label: string; completed: boolean }[];
@@ -104,23 +105,23 @@ export function HistoryClient() {
           </Card>
 
           <section className="space-y-3">
-            <SectionHeader>Top Trigger der Woche</SectionHeader>
+            <SectionHeader>{topTriggersSectionTitle(data.range)}</SectionHeader>
             {data.topTriggers.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {data.topTriggers.map((trigger) => (
                   <span
-                    key={trigger.word}
+                    key={trigger.label}
                     className="rounded-full bg-primary/15 px-3 py-1.5 text-sm font-medium text-primary"
                   >
-                    {trigger.word}
+                    {trigger.label}
                     <span className="ml-1 text-xs opacity-70">({trigger.count})</span>
                   </span>
                 ))}
               </div>
             ) : (
-              <Card>
-                <p className="text-sm text-text-secondary">Noch zu wenig Daten.</p>
-              </Card>
+              <p className="text-sm text-text-secondary">
+                Noch keine Trigger erkannt.
+              </p>
             )}
           </section>
 

@@ -8,6 +8,11 @@ import {
   pickSuggestedShortSkill,
   skillToPayload,
 } from "@/lib/checkin/suggest-skill";
+import {
+  fetchExistingTriggers,
+  resolveTriggerId,
+  topTriggerLabelsForPrompt,
+} from "@/lib/checkin/triggers";
 import { createClient } from "@/lib/supabase/server";
 
 const bodySchema = z.object({
@@ -65,12 +70,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ crisis: true, checkinId: data.id });
   }
 
+  const existingTriggers = await fetchExistingTriggers(supabase, user.id);
+  const existingLabels = topTriggerLabelsForPrompt(existingTriggers);
+
   let extracted = { ...emptyExtracted };
   let svvFlag = false;
+  let triggerId: string | null = null;
 
   if (trimmedText) {
     try {
-      const aiResult = await extractCheckinText(level, trimmedText);
+      const aiResult = await extractCheckinText(level, trimmedText, existingLabels);
       extracted = {
         situation: aiResult.situation,
         gedanken: aiResult.gedanken,
@@ -79,6 +88,15 @@ export async function POST(request: Request) {
         beduerfnis: aiResult.beduerfnis,
       };
       svvFlag = aiResult.svv_intent;
+
+      if (aiResult.trigger.trim().length > 0) {
+        triggerId = await resolveTriggerId(
+          supabase,
+          user.id,
+          aiResult.trigger,
+          existingTriggers
+        );
+      }
     } catch (err) {
       const message =
         err instanceof ExtractParseError
@@ -112,6 +130,7 @@ export async function POST(request: Request) {
       suggested_skill_id: suggestedSkill?.id ?? null,
       suggested_long_skill_id: suggestedLongSkill?.id ?? null,
       svv_flag: svvFlag,
+      trigger_id: triggerId,
       crisis_flag: false,
     })
     .select("id")

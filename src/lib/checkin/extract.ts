@@ -1,17 +1,37 @@
 import OpenAI from "openai";
 import { z } from "zod";
 
-const SYSTEM_PROMPT = `Du bist ein präziser Assistent, der Selbstbeobachtungs-Texte strukturiert. Extrahiere die folgenden Felder. Antworte als JSON. Wenn ein Feld nicht erwähnt wird: leerer String. Erfinde nichts, paraphrasiere knapp.
+export function buildExtractSystemPrompt(existingLabels: string[]): string {
+  const labelBlock =
+    existingLabels.length > 0
+      ? existingLabels.map((l) => `   - ${l}`).join("\n")
+      : "   (noch keine)";
+
+  return `Du bist ein präziser Assistent, der Selbstbeobachtungs-Texte strukturiert. Extrahiere die folgenden Felder. Antworte als JSON. Wenn ein Feld nicht erwähnt wird: leerer String. Erfinde nichts, paraphrasiere knapp.
 
 Felder:
-- situation (string): Was passiert konkret?
-- gedanken (string): Welche Gedanken werden geäußert?
-- koerper (string): Welche Körperempfindungen?
-- gefuehl (string): Welche Emotionen?
-- beduerfnis (string): Welches Bedürfnis steckt dahinter? (vorsichtig erschließen)
-- svv_intent (boolean): true NUR wenn die Person aktuell den Wunsch oder Drang äußert, sich selbst zu verletzen (z.B. 'ich will mich ritzen', 'ich habe Druck mich zu schneiden', 'ich möchte mir wehtun'). false bei: vergangenen Episoden, generellen Themen, Vergleichen, Berichten über andere, oder wenn nur 'angespannt' / 'wütend' steht. Im Zweifel: false.
+- situation (string)
+- gedanken (string)
+- koerper (string)
+- gefuehl (string)
+- beduerfnis (string)
+- svv_intent (boolean): nur true bei explizitem Wunsch sich zu verletzen
+- trigger (string): Identifiziere den konkreten ZUGRUNDELIEGENDEN Auslöser der Anspannung — das, was sie tatsächlich verursacht.
+
+Trigger-Regeln:
+1. Bestehende Trigger-Labels dieses Users:
+${labelBlock}
+
+2. Wenn der erkannte Trigger semantisch zu einem bestehenden Label passt: nutze EXAKT dieses Label, Wort für Wort.
+
+3. Wenn kein bestehendes Label passt: formuliere ein neues, kurzes Label (2–5 Wörter, Deutsch). Spezifisch, nicht generisch:
+   - NICHT: 'Stress', 'Angst', 'Müdigkeit', 'Druck', 'Überforderung' allein
+   - JA: 'Deadline-Druck Arbeit', 'Streit mit Partner', 'Schlafmangel', 'Reizüberflutung Büro', 'Soziale Erwartungen', 'Gedankenkarussell nachts'
+
+4. Wenn der Trigger aus dem Text wirklich nicht erkennbar ist (z.B. nur 'mir gehts schlecht'): leerer String ''.
 
 Antworte ausschließlich mit gültigem JSON, keine Markdown-Codeblöcke.`;
+}
 
 const extractSchema = z.object({
   situation: z.string(),
@@ -20,6 +40,7 @@ const extractSchema = z.object({
   gefuehl: z.string(),
   beduerfnis: z.string(),
   svv_intent: z.boolean(),
+  trigger: z.string(),
 });
 
 export type ExtractedCheckin = z.infer<typeof extractSchema>;
@@ -33,7 +54,8 @@ export class ExtractParseError extends Error {
 
 export async function extractCheckinText(
   level: number,
-  text: string
+  text: string,
+  existingLabels: string[] = []
 ): Promise<ExtractedCheckin> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
@@ -45,10 +67,10 @@ export async function extractCheckinText(
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0.2,
-    max_tokens: 250,
+    max_tokens: 350,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: buildExtractSystemPrompt(existingLabels) },
       {
         role: "user",
         content: `Anspannungslevel: ${level}/10\n\nText:\n${text}`,

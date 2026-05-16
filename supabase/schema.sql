@@ -18,6 +18,14 @@ ist_lang boolean default false,
 aktiv boolean default true,
 created_at timestamptz default now()
 );
+-- Semantische Trigger
+create table triggers (
+id uuid default gen_random_uuid() primary key,
+user_id uuid references auth.users not null,
+label text not null,
+created_at timestamptz default now()
+);
+create unique index triggers_user_label_unique on triggers (user_id, lower(trim(label)));
 -- Check-ins
 create table checkins (
 id uuid default gen_random_uuid() primary key,
@@ -64,7 +72,8 @@ svv_skill_status text check (svv_skill_status in
 ,
 'anderer'
 ,
-'uebersprungen'))
+'uebersprungen')),
+trigger_id uuid references triggers(id) on delete set null
 );
 -- Settings
 create table settings (

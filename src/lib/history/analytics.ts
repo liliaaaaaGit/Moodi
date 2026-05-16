@@ -1,5 +1,4 @@
 import { getBerlinHour } from "@/lib/date/berlin";
-import { GERMAN_STOP_WORDS } from "@/lib/history/stopwords";
 
 export type HistoryRange = "week" | "month" | "all";
 export type TimeBucket = "morning" | "midday" | "evening" | "night";
@@ -12,6 +11,8 @@ export type RawCheckin = {
   input_raw: string | null;
   chosen_skill_id: string | null;
   hilfreich: string | null;
+  trigger_id: string | null;
+  triggers?: { label: string } | null;
 };
 
 export type SkillRow = { id: string; name: string };
@@ -94,25 +95,34 @@ function formatChartLabel(iso: string, range: HistoryRange): string {
   }).format(date);
 }
 
-function extractTopTriggers(checkins: RawCheckin[], limit = 5) {
-  const startDay = daysAgoBerlin(6);
-  const recent = checkins.filter((c) => isOnOrAfterBerlinDay(c.created_at, startDay));
-  const counts = new Map<string, number>();
+/** Aggregation über trigger_id — nur Check-ins mit gesetztem semantischem Trigger. */
+function extractTopTriggers(
+  checkins: RawCheckin[],
+  range: HistoryRange,
+  limit = 5
+) {
+  const counts: Record<string, number> = {};
 
-  for (const checkin of recent) {
-    const text = (checkin.situation ?? checkin.input_raw ?? "").toLowerCase();
-    const words = text.match(/[a-zäöüß]{3,}/gi) ?? [];
-    for (const word of words) {
-      const normalized = word.toLowerCase();
-      if (GERMAN_STOP_WORDS.has(normalized)) continue;
-      counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
-    }
+  for (const checkin of checkins) {
+    if (!checkin.trigger_id) continue;
+    if (!filterByRange([checkin], range).length) continue;
+
+    const label = checkin.triggers?.label;
+    if (!label) continue;
+
+    counts[label] = (counts[label] ?? 0) + 1;
   }
 
-  return Array.from(counts.entries())
+  return Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
-    .map(([word, count]) => ({ word, count }));
+    .map(([label, count]) => ({ label, count }));
+}
+
+export function topTriggersSectionTitle(range: HistoryRange): string {
+  if (range === "month") return "Top Trigger des Monats";
+  if (range === "all") return "Top Trigger";
+  return "Top Trigger der Woche";
 }
 
 function extractHelpfulSkills(
@@ -235,7 +245,7 @@ export function buildHistoryAnalytics(
     range,
     chartPoints,
     heatmap: buildHeatmap(filtered),
-    topTriggers: extractTopTriggers(allCheckins),
+    topTriggers: extractTopTriggers(allCheckins, range),
     helpfulSkills: extractHelpfulSkills(allCheckins, skillMap),
     breathRitual: buildBreathRitual(breathCompletions),
     weekdayLabels: WEEKDAY_LABELS,
