@@ -33,18 +33,36 @@ function AfterContent() {
       try {
         const response = await fetch(`/api/checkin/${checkinId}`);
         const payload = await response.json();
-        if (response.ok && payload.checkin?.level_before != null) {
-          setLevelAfter(payload.checkin.level_before);
+
+        if (!response.ok) {
+          router.replace("/");
+          return;
+        }
+
+        const record = payload.checkin;
+        const status = record?.skill_status;
+        const hasChosenSkill =
+          Boolean(record?.chosen_skill_id) || Boolean(record?.chosen_long_skill_id);
+        const mayUseAfter =
+          status === "gemacht" || status === "anderer" || hasChosenSkill;
+
+        if (!mayUseAfter || status === "nicht_gemacht") {
+          router.replace(record?.id ? `/history/${record.id}` : "/");
+          return;
+        }
+
+        if (record.level_before != null) {
+          setLevelAfter(record.level_before);
         }
       } catch {
-        // Default-Level 5 bleibt
+        router.replace("/");
       } finally {
         setInitialLoading(false);
       }
     }
 
     loadCheckin();
-  }, [checkinId]);
+  }, [checkinId, router]);
 
   async function handleSave() {
     if (!checkinId) {
@@ -78,6 +96,7 @@ function AfterContent() {
       }
 
       router.push("/");
+      router.refresh();
     } catch {
       setToast("Netzwerkfehler. Bitte versuche es erneut.");
     } finally {

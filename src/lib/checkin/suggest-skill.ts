@@ -24,22 +24,26 @@ export function skillToPayload(skill: SkillRow | null) {
   };
 }
 
-function pickRandom<T>(items: T[]): T | null {
-  if (!items.length) return null;
-  return items[Math.floor(Math.random() * items.length)] ?? null;
+function shuffle<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j]!, copy[i]!];
+  }
+  return copy;
 }
 
 async function getLastSuggestedIds(supabase: SupabaseClient, userId: string) {
   const { data } = await supabase
     .from("checkins")
-    .select("suggested_skill_id, suggested_long_skill_id")
+    .select("suggested_short_skill_ids, suggested_long_skill_id")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   return {
-    shortId: data?.suggested_skill_id ?? null,
+    shortIds: new Set<string>(data?.suggested_short_skill_ids ?? []),
     longId: data?.suggested_long_skill_id ?? null,
   };
 }
@@ -50,25 +54,26 @@ async function getHelpfulSkillIds(supabase: SupabaseClient, userId: string) {
 
   const { data: recentHelpful } = await supabase
     .from("checkins")
-    .select("chosen_skill_id")
+    .select("chosen_skill_id, chosen_long_skill_id")
     .eq("user_id", userId)
     .in("hilfreich", ["ja", "bisschen"])
-    .gte("created_at", fourteenDaysAgo.toISOString())
-    .not("chosen_skill_id", "is", null);
+    .gte("created_at", fourteenDaysAgo.toISOString());
 
-  return new Set(
-    (recentHelpful ?? [])
-      .map((row) => row.chosen_skill_id)
-      .filter((id): id is string => Boolean(id))
-  );
+  const ids = new Set<string>();
+  for (const row of recentHelpful ?? []) {
+    if (row.chosen_skill_id) ids.add(row.chosen_skill_id);
+    if (row.chosen_long_skill_id) ids.add(row.chosen_long_skill_id);
+  }
+  return ids;
 }
 
-/** Kurzer Cope-Skill (nicht lang, nicht SVV). */
-export async function pickSuggestedShortSkill(
+/** Bis zu 3 kurze Cope-Skills (nicht lang, nicht SVV). */
+export async function pickSuggestedShortSkills(
   supabase: SupabaseClient,
   userId: string,
-  level: number
-): Promise<SkillRow | null> {
+  level: number,
+  count = 3
+): Promise<SkillRow[]> {
   const { data: skills, error } = await supabase
     .from("skills")
     .select(SKILL_SELECT)
@@ -80,12 +85,12 @@ export async function pickSuggestedShortSkill(
     .gte("level_max", level);
 
   if (error || !skills?.length) {
-    return null;
+    return [];
   }
 
-  const { shortId } = await getLastSuggestedIds(supabase, userId);
+  const { shortIds: lastShortIds } = await getLastSuggestedIds(supabase, userId);
 
-  let candidates = skills.filter((skill) => skill.id !== shortId);
+  let candidates = skills.filter((skill) => !lastShortIds.has(skill.id));
   if (!candidates.length) {
     candidates = skills;
   }
@@ -94,7 +99,7 @@ export async function pickSuggestedShortSkill(
   const prioritized = candidates.filter((skill) => helpfulIds.has(skill.id));
   const pool = prioritized.length > 0 ? prioritized : candidates;
 
-  return pickRandom(pool);
+  return shuffle(pool).slice(0, Math.min(count, pool.length));
 }
 
 /** Langer Thrive-Skill. */
@@ -123,7 +128,8 @@ export async function pickSuggestedLongSkill(
     candidates = skills;
   }
 
-  return pickRandom(candidates);
+  const picked = shuffle(candidates)[0];
+  return picked ?? null;
 }
 
 /** SVV-Skill (z. B. „Arm bemalen“) – nur bei svv_flag ausliefern. */
@@ -146,4 +152,23 @@ export async function fetchSvvSkill(
   }
 
   return data;
+}
+
+export async function loadSkillsByIds(
+  supabase: SupabaseClient,
+  ids: string[]
+): Promise<SkillRow[]> {
+  if (!ids.length) return [];
+
+  const { data, error } = await supabase
+    .from("skills")
+    .select(SKILL_SELECT)
+    .in("id", ids);
+
+  if (error || !data?.length) return [];
+
+  const byId = new Map(data.map((skill) => [skill.id, skill]));
+  return ids
+    .map((id) => byId.get(id))
+    .filter((skill): skill is SkillRow => Boolean(skill));
 }

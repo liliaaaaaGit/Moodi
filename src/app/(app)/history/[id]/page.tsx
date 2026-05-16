@@ -53,7 +53,7 @@ export default async function HistoryDetailPage({ params }: HistoryDetailPagePro
   const { data: checkin } = await supabase
     .from("checkins")
     .select(
-      "id, created_at, level_before, level_after, input_raw, situation, gedanken, koerper, gefuehl, beduerfnis, crisis_flag, skill_status, suggested_skill_id, chosen_skill_id, hilfreich, comment"
+      "id, created_at, level_before, level_after, input_raw, situation, gedanken, koerper, gefuehl, beduerfnis, crisis_flag, skill_status, suggested_skill_id, chosen_skill_id, chosen_long_skill_id, hilfreich, comment"
     )
     .eq("id", params.id)
     .eq("user_id", user.id)
@@ -63,9 +63,10 @@ export default async function HistoryDetailPage({ params }: HistoryDetailPagePro
     notFound();
   }
 
-  const [suggestedSkill, chosenSkill] = await Promise.all([
+  const [suggestedSkill, chosenSkill, chosenLongSkill] = await Promise.all([
     loadSkill(supabase, checkin.suggested_skill_id),
     loadSkill(supabase, checkin.chosen_skill_id),
+    loadSkill(supabase, checkin.chosen_long_skill_id),
   ]);
 
   const dateLabel = isSameBerlinDay(checkin.created_at, getBerlinToday())
@@ -79,9 +80,18 @@ export default async function HistoryDetailPage({ params }: HistoryDetailPagePro
       });
 
   const timeLabel = formatBerlinTime(checkin.created_at);
-  const displaySkill = chosenSkill ?? suggestedSkill;
-  const skillRole = chosenSkill ? "Gewählter Skill" : suggestedSkill ? "Vorgeschlagener Skill" : null;
+  const displaySkill = chosenSkill ?? chosenLongSkill ?? suggestedSkill;
+  const skillRole = chosenSkill || chosenLongSkill
+    ? "Gewählter Skill"
+    : suggestedSkill
+      ? "Vorgeschlagener Skill"
+      : null;
+  const noSkillDone =
+    checkin.skill_status === "nicht_gemacht" &&
+    !checkin.chosen_skill_id &&
+    !checkin.chosen_long_skill_id;
   const hasSkillInfo =
+    noSkillDone ||
     displaySkill ||
     checkin.skill_status ||
     checkin.level_after != null ||
@@ -139,7 +149,10 @@ export default async function HistoryDetailPage({ params }: HistoryDetailPagePro
       {hasSkillInfo ? (
         <Card className="mt-6 space-y-3 p-5">
           <SectionHeader>Skill</SectionHeader>
-          {displaySkill && skillRole ? (
+          {noSkillDone ? (
+            <p className="text-sm text-text-secondary">Skill: keiner gemacht</p>
+          ) : null}
+          {!noSkillDone && displaySkill && skillRole ? (
             <div>
               <p className="text-xs text-text-secondary">{skillRole}</p>
               <p className="mt-1 font-medium text-text-primary">{displaySkill.name}</p>
@@ -149,7 +162,7 @@ export default async function HistoryDetailPage({ params }: HistoryDetailPagePro
               </p>
             </div>
           ) : null}
-          {checkin.skill_status ? (
+          {!noSkillDone && checkin.skill_status ? (
             <p className="text-sm text-text-secondary">
               Status:{" "}
               <span className="text-text-primary">

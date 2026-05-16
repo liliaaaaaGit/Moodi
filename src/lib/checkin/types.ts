@@ -23,16 +23,14 @@ export type CheckinRecord = {
   gefuehl: string | null;
   beduerfnis: string | null;
   suggested_skill_id: string | null;
+  suggested_short_skill_ids: string[];
   suggested_long_skill_id: string | null;
   chosen_skill_id: string | null;
   chosen_long_skill_id: string | null;
-  chosen_svv_skill_id: string | null;
   skill_status: SkillStatus;
-  long_skill_status: SkillStatus;
-  svv_skill_status: SkillStatus;
   svv_flag: boolean;
   crisis_flag: boolean;
-  suggested_skill: SkillSummary | null;
+  suggested_short_skills: SkillSummary[];
   suggested_long_skill: SkillSummary | null;
   svv_skill: SkillSummary | null;
 };

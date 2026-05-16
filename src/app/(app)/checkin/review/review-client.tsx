@@ -3,14 +3,10 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/Card";
-import { PrimaryButton } from "@/components/PrimaryButton";
-import {
-  ReviewSkillSuggestion,
-  ReviewSvvCard,
-} from "@/components/ReviewSkillSuggestion";
-import { SkillPickerSheet } from "@/components/SkillPickerSheet";
+import { ReviewTapSkillCard } from "@/components/ReviewTapSkillCard";
+import { SkillPickerGroupedSheet } from "@/components/SkillPickerGroupedSheet";
 import { Toast } from "@/components/Toast";
-import type { CheckinRecord, SkillStatus, SkillSummary } from "@/lib/checkin/types";
+import type { CheckinRecord, SkillSummary } from "@/lib/checkin/types";
 
 const FIELD_LABELS: { key: keyof CheckinRecord; label: string }[] = [
   { key: "situation", label: "Situation" },
@@ -23,13 +19,8 @@ const FIELD_LABELS: { key: keyof CheckinRecord; label: string }[] = [
 type PatchBody = {
   chosen_skill_id?: string | null;
   chosen_long_skill_id?: string | null;
-  chosen_svv_skill_id?: string | null;
-  skill_status?: SkillStatus;
-  long_skill_status?: SkillStatus;
-  svv_skill_status?: SkillStatus;
+  skill_status: string;
 };
-
-type SheetKind = "short" | "long" | null;
 
 async function patchCheckin(id: string, body: PatchBody) {
   const response = await fetch(`/api/checkin/${id}`, {
@@ -42,10 +33,6 @@ async function patchCheckin(id: string, body: PatchBody) {
   }
 }
 
-function isEvaluated(status: SkillStatus) {
-  return status != null;
-}
-
 export function ReviewClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -54,26 +41,12 @@ export function ReviewClient() {
   const [checkin, setCheckin] = useState<CheckinRecord | null>(null);
   const [shortSkills, setShortSkills] = useState<SkillSummary[]>([]);
   const [longSkills, setLongSkills] = useState<SkillSummary[]>([]);
-  const [sheetKind, setSheetKind] = useState<SheetKind>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const dismissToast = useCallback(() => setToast(null), []);
-
-  const loadCheckin = useCallback(async () => {
-    if (!checkinId) return null;
-
-    const response = await fetch(`/api/checkin/${checkinId}`);
-    const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.error ?? "Check-in nicht gefunden");
-    }
-
-    const record = payload.checkin as CheckinRecord;
-    setCheckin(record);
-    return record;
-  }, [checkinId]);
 
   useEffect(() => {
     if (!checkinId) {
@@ -83,17 +56,21 @@ export function ReviewClient() {
 
     async function load() {
       try {
-        const record = await loadCheckin();
-        if (!record) return;
+        const response = await fetch(`/api/checkin/${checkinId}`);
+        const payload = await response.json();
+        if (!response.ok) {
+          setToast(payload.error ?? "Check-in nicht gefunden");
+          return;
+        }
+        const record = payload.checkin as CheckinRecord;
+        setCheckin(record);
 
         const [shortRes, longRes] = await Promise.all([
           fetch(`/api/checkin/skills?level=${record.level_before}&kind=short`),
           fetch(`/api/checkin/skills?level=${record.level_before}&kind=long`),
         ]);
-
         const shortPayload = await shortRes.json();
         const longPayload = await longRes.json();
-
         if (shortRes.ok) setShortSkills(shortPayload.skills ?? []);
         if (longRes.ok) setLongSkills(longPayload.skills ?? []);
       } catch {
@@ -104,15 +81,19 @@ export function ReviewClient() {
     }
 
     load();
-  }, [checkinId, loadCheckin]);
+  }, [checkinId]);
 
-  async function applyPatch(body: PatchBody) {
+  async function selectShortOrSvv(skillId: string, status: "gemacht" | "anderer") {
     if (!checkinId) return;
     setActing(true);
     try {
-      await patchCheckin(checkinId, body);
+      await patchCheckin(checkinId, {
+        chosen_skill_id: skillId,
+        chosen_long_skill_id: null,
+        skill_status: status,
+      });
       router.refresh();
-      await loadCheckin();
+      router.push(`/checkin/after?id=${checkinId}`);
     } catch {
       setToast("Konnte nicht gespeichert werden");
     } finally {
@@ -120,61 +101,40 @@ export function ReviewClient() {
     }
   }
 
-  // Kurzer Skill: chosen_skill_id + skill_status (unabhängig von lang/SVV)
-  function handleShortMachIch() {
-    if (!checkin?.suggested_skill_id) return;
-    void applyPatch({
-      chosen_skill_id: checkin.suggested_skill_id,
-      skill_status: "gemacht",
-    });
+  async function selectLong(skillId: string, status: "gemacht" | "anderer") {
+    if (!checkinId) return;
+    setActing(true);
+    try {
+      await patchCheckin(checkinId, {
+        chosen_skill_id: null,
+        chosen_long_skill_id: skillId,
+        skill_status: status,
+      });
+      router.refresh();
+      router.push(`/checkin/after?id=${checkinId}`);
+    } catch {
+      setToast("Konnte nicht gespeichert werden");
+    } finally {
+      setActing(false);
+    }
   }
 
-  function handleShortJetztNicht() {
-    void applyPatch({ skill_status: "nicht_gemacht" });
-  }
-
-  function handleShortOther(skill: SkillSummary) {
-    setSheetKind(null);
-    void applyPatch({
-      chosen_skill_id: skill.id,
-      skill_status: "anderer",
-    });
-  }
-
-  function handleLongMachIch() {
-    if (!checkin?.suggested_long_skill_id) return;
-    void applyPatch({
-      chosen_long_skill_id: checkin.suggested_long_skill_id,
-      long_skill_status: "gemacht",
-    });
-  }
-
-  function handleLongJetztNicht() {
-    void applyPatch({ long_skill_status: "nicht_gemacht" });
-  }
-
-  function handleLongOther(skill: SkillSummary) {
-    setSheetKind(null);
-    void applyPatch({
-      chosen_long_skill_id: skill.id,
-      long_skill_status: "anderer",
-    });
-  }
-
-  /**
-   * SVV nutzt eigene Felder chosen_svv_skill_id + svv_skill_status,
-   * damit kurzer/langer Skill parallel bewertet werden können (additiv).
-   */
-  function handleSvvMachIch() {
-    if (!checkin?.svv_skill?.id) return;
-    void applyPatch({
-      chosen_svv_skill_id: checkin.svv_skill.id,
-      svv_skill_status: "gemacht",
-    });
-  }
-
-  function handleSvvJetztNicht() {
-    void applyPatch({ svv_skill_status: "nicht_gemacht" });
+  async function handleNichtJetzt() {
+    if (!checkinId) return;
+    setActing(true);
+    try {
+      await patchCheckin(checkinId, {
+        chosen_skill_id: null,
+        chosen_long_skill_id: null,
+        skill_status: "nicht_gemacht",
+      });
+      router.refresh();
+      router.push("/");
+    } catch {
+      setToast("Konnte nicht gespeichert werden");
+    } finally {
+      setActing(false);
+    }
   }
 
   if (loading) {
@@ -196,19 +156,10 @@ export function ReviewClient() {
     return typeof value === "string" && value.trim().length > 0;
   });
 
-  const hasShort = Boolean(checkin.suggested_skill);
+  const shortSuggestions = checkin.suggested_short_skills ?? [];
   const hasLong = Boolean(checkin.suggested_long_skill);
   const hasSvv = checkin.svv_flag && Boolean(checkin.svv_skill);
-  const hasSuggestions = hasShort || hasLong || hasSvv;
-
-  const anyEvaluated =
-    (hasShort && isEvaluated(checkin.skill_status)) ||
-    (hasLong && isEvaluated(checkin.long_skill_status)) ||
-    (hasSvv && isEvaluated(checkin.svv_skill_status));
-
-  const showWeiter = !hasSuggestions || anyEvaluated;
-
-  const sheetSkills = sheetKind === "long" ? longSkills : shortSkills;
+  const hasSuggestions = shortSuggestions.length > 0 || hasLong || hasSvv;
 
   return (
     <>
@@ -237,70 +188,80 @@ export function ReviewClient() {
         ) : null}
 
         {hasSuggestions ? (
-          <section className="space-y-6">
+          <section className="space-y-4">
             <h2 className="text-xs font-medium uppercase tracking-wider text-text-secondary">
               Vorschläge
             </h2>
 
-            {hasShort && checkin.suggested_skill ? (
-              <ReviewSkillSuggestion
-                skill={checkin.suggested_skill}
-                status={checkin.skill_status}
-                acting={acting}
-                onMachIch={handleShortMachIch}
-                onJetztNicht={handleShortJetztNicht}
-                onOtherSkill={() => setSheetKind("short")}
-              />
-            ) : null}
+            <div className="space-y-3">
+              {shortSuggestions.map((skill) => (
+                <ReviewTapSkillCard
+                  key={skill.id}
+                  skill={skill}
+                  variant="short"
+                  disabled={acting}
+                  onSelect={() => selectShortOrSvv(skill.id, "gemacht")}
+                />
+              ))}
 
-            {hasLong && checkin.suggested_long_skill ? (
-              <ReviewSkillSuggestion
-                skill={checkin.suggested_long_skill}
-                status={checkin.long_skill_status}
-                acting={acting}
-                onMachIch={handleLongMachIch}
-                onJetztNicht={handleLongJetztNicht}
-                onOtherSkill={() => setSheetKind("long")}
-              />
-            ) : null}
+              {hasLong && checkin.suggested_long_skill ? (
+                <ReviewTapSkillCard
+                  skill={checkin.suggested_long_skill}
+                  variant="long"
+                  disabled={acting}
+                  onSelect={() =>
+                    selectLong(checkin.suggested_long_skill!.id, "gemacht")
+                  }
+                />
+              ) : null}
 
-            {hasSvv && checkin.svv_skill ? (
-              <ReviewSvvCard
-                skill={checkin.svv_skill}
-                status={checkin.svv_skill_status}
-                acting={acting}
-                onMachIch={handleSvvMachIch}
-                onJetztNicht={handleSvvJetztNicht}
-              />
-            ) : null}
+              {hasSvv && checkin.svv_skill ? (
+                <ReviewTapSkillCard
+                  skill={checkin.svv_skill}
+                  variant="svv"
+                  disabled={acting}
+                  onSelect={() => selectShortOrSvv(checkin.svv_skill!.id, "gemacht")}
+                />
+              ) : null}
+            </div>
           </section>
         ) : (
           <p className="text-center text-sm text-text-secondary">
-            Kein Skill-Vorschlag für dieses Level – du kannst trotzdem
-            fortfahren.
+            Kein Skill-Vorschlag für dieses Level.
           </p>
         )}
 
-        {showWeiter ? (
-          <PrimaryButton
+        <div className="flex gap-3 pt-2">
+          <button
+            type="button"
             disabled={acting}
-            onClick={() => router.push(`/checkin/after?id=${checkinId}`)}
-            className="mt-2"
+            onClick={() => setSheetOpen(true)}
+            className="min-h-touch w-1/2 rounded-2xl border border-primary bg-white px-4 text-base font-medium text-primary shadow-soft transition-opacity hover:bg-primary/5 disabled:opacity-60"
           >
-            Weiter
-          </PrimaryButton>
-        ) : null}
+            Andere Skills
+          </button>
+          <button
+            type="button"
+            disabled={acting}
+            onClick={handleNichtJetzt}
+            className="min-h-touch w-1/2 rounded-2xl border border-[#C97B7B] bg-white px-4 text-base font-medium text-[#C97B7B] shadow-soft transition-opacity hover:bg-[#C97B7B]/5 disabled:opacity-60"
+          >
+            Nicht jetzt
+          </button>
+        </div>
       </div>
 
-      <SkillPickerSheet
-        open={sheetKind != null}
-        skills={sheetSkills}
-        onClose={() => setSheetKind(null)}
-        onSelect={(skill) => {
-          if (sheetKind === "long") {
-            handleLongOther(skill);
+      <SkillPickerGroupedSheet
+        open={sheetOpen}
+        shortSkills={shortSkills}
+        longSkills={longSkills}
+        onClose={() => setSheetOpen(false)}
+        onSelect={(skill, kind) => {
+          setSheetOpen(false);
+          if (kind === "long") {
+            void selectLong(skill.id, "anderer");
           } else {
-            handleShortOther(skill);
+            void selectShortOrSvv(skill.id, "anderer");
           }
         }}
       />

@@ -5,7 +5,7 @@ import { ExtractParseError, extractCheckinText } from "@/lib/checkin/extract";
 import {
   fetchSvvSkill,
   pickSuggestedLongSkill,
-  pickSuggestedShortSkill,
+  pickSuggestedShortSkills,
   skillToPayload,
 } from "@/lib/checkin/suggest-skill";
 import {
@@ -109,11 +109,12 @@ export async function POST(request: Request) {
     }
   }
 
-  const [suggestedSkill, suggestedLongSkill] = await Promise.all([
-    pickSuggestedShortSkill(supabase, user.id, level),
+  const [suggestedShortSkills, suggestedLongSkill] = await Promise.all([
+    pickSuggestedShortSkills(supabase, user.id, level, 3),
     pickSuggestedLongSkill(supabase, user.id, level),
   ]);
 
+  const shortIds = suggestedShortSkills.map((s) => s.id);
   const svvSkill = svvFlag ? await fetchSvvSkill(supabase, user.id) : null;
 
   const { data, error } = await supabase
@@ -127,7 +128,8 @@ export async function POST(request: Request) {
       koerper: extracted.koerper || null,
       gefuehl: extracted.gefuehl || null,
       beduerfnis: extracted.beduerfnis || null,
-      suggested_skill_id: suggestedSkill?.id ?? null,
+      suggested_short_skill_ids: shortIds,
+      suggested_skill_id: shortIds[0] ?? null,
       suggested_long_skill_id: suggestedLongSkill?.id ?? null,
       svv_flag: svvFlag,
       trigger_id: triggerId,
@@ -146,7 +148,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     crisis: false,
     checkinId: data.id,
-    suggestedSkill: skillToPayload(suggestedSkill),
+    suggestedShortSkills: suggestedShortSkills.map((s) => skillToPayload(s)!),
     suggestedLongSkill: skillToPayload(suggestedLongSkill),
     svvFlag,
     svvSkill: skillToPayload(svvSkill),
