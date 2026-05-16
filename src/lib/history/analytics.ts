@@ -15,6 +15,26 @@ export type RawCheckin = {
   triggers?: { label: string } | null;
 };
 
+type TriggerJoinRow = { label: string } | { label: string }[] | null;
+
+/** Supabase liefert FK-Joins je nach Typisierung als Objekt oder Array. */
+export function normalizeTriggerJoin(
+  triggers: TriggerJoinRow | undefined
+): { label: string } | null {
+  if (!triggers) return null;
+  if (Array.isArray(triggers)) return triggers[0] ?? null;
+  return triggers;
+}
+
+export function normalizeHistoryCheckins<T extends Omit<RawCheckin, "triggers"> & {
+  triggers?: TriggerJoinRow;
+}>(rows: T[]): RawCheckin[] {
+  return rows.map((row) => ({
+    ...row,
+    triggers: normalizeTriggerJoin(row.triggers),
+  }));
+}
+
 export type SkillRow = { id: string; name: string };
 
 const WEEKDAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];

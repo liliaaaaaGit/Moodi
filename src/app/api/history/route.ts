@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   buildHistoryAnalytics,
+  normalizeHistoryCheckins,
   type HistoryRange,
 } from "@/lib/history/analytics";
 import { createClient } from "@/lib/supabase/server";
@@ -68,7 +69,7 @@ export async function GET(request: Request) {
   }
 
   const analytics = buildHistoryAnalytics(
-    checkinsRes.data ?? [],
+    normalizeHistoryCheckins(checkinsRes.data ?? []),
     skillsRes.data ?? [],
     breathCompletions,
     range
