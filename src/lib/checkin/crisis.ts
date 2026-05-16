@@ -3,7 +3,6 @@ const CRISIS_PATTERNS: RegExp[] = [
   /umbringen/i,
   /suizid/i,
   /selbstmord/i,
-  /mich verletzen/i,
   /mich umbringen/i,
   /schluss machen mit (?:mir|meinem leben)/i,
   /kann nicht mehr/i,

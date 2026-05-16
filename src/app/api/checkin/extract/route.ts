@@ -1,14 +1,27 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isCrisis } from "@/lib/checkin/crisis";
-import { extractCheckinText } from "@/lib/checkin/extract";
-import { pickSuggestedSkill } from "@/lib/checkin/suggest-skill";
+import { ExtractParseError, extractCheckinText } from "@/lib/checkin/extract";
+import {
+  fetchSvvSkill,
+  pickSuggestedLongSkill,
+  pickSuggestedShortSkill,
+  skillToPayload,
+} from "@/lib/checkin/suggest-skill";
 import { createClient } from "@/lib/supabase/server";
 
 const bodySchema = z.object({
   level: z.number().int().min(0).max(10),
   text: z.string().max(8000),
 });
+
+const emptyExtracted = {
+  situation: "",
+  gedanken: "",
+  koerper: "",
+  gefuehl: "",
+  beduerfnis: "",
+};
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -52,26 +65,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ crisis: true, checkinId: data.id });
   }
 
-  let extracted = {
-    situation: "",
-    gedanken: "",
-    koerper: "",
-    gefuehl: "",
-    beduerfnis: "",
-  };
+  let extracted = { ...emptyExtracted };
+  let svvFlag = false;
 
   if (trimmedText) {
     try {
-      extracted = await extractCheckinText(level, trimmedText);
-    } catch {
-      return NextResponse.json(
-        { error: "Auswertung fehlgeschlagen. Bitte versuche es erneut." },
-        { status: 502 }
-      );
+      const aiResult = await extractCheckinText(level, trimmedText);
+      extracted = {
+        situation: aiResult.situation,
+        gedanken: aiResult.gedanken,
+        koerper: aiResult.koerper,
+        gefuehl: aiResult.gefuehl,
+        beduerfnis: aiResult.beduerfnis,
+      };
+      svvFlag = aiResult.svv_intent;
+    } catch (err) {
+      const message =
+        err instanceof ExtractParseError
+          ? "Auswertung fehlgeschlagen. Bitte versuche es erneut."
+          : err instanceof Error && err.message === "OPENAI_API_KEY fehlt"
+            ? "KI ist nicht konfiguriert."
+            : "Auswertung fehlgeschlagen. Bitte versuche es erneut.";
+
+      return NextResponse.json({ error: message }, { status: 502 });
     }
   }
 
-  const suggestedSkill = await pickSuggestedSkill(supabase, user.id, level);
+  const [suggestedSkill, suggestedLongSkill] = await Promise.all([
+    pickSuggestedShortSkill(supabase, user.id, level),
+    pickSuggestedLongSkill(supabase, user.id, level),
+  ]);
+
+  const svvSkill = svvFlag ? await fetchSvvSkill(supabase, user.id) : null;
 
   const { data, error } = await supabase
     .from("checkins")
@@ -85,6 +110,8 @@ export async function POST(request: Request) {
       gefuehl: extracted.gefuehl || null,
       beduerfnis: extracted.beduerfnis || null,
       suggested_skill_id: suggestedSkill?.id ?? null,
+      suggested_long_skill_id: suggestedLongSkill?.id ?? null,
+      svv_flag: svvFlag,
       crisis_flag: false,
     })
     .select("id")
@@ -100,14 +127,9 @@ export async function POST(request: Request) {
   return NextResponse.json({
     crisis: false,
     checkinId: data.id,
-    suggestedSkill: suggestedSkill
-      ? {
-          id: suggestedSkill.id,
-          name: suggestedSkill.name,
-          kategorie: suggestedSkill.kategorie,
-          dauer_minuten: suggestedSkill.dauer_minuten,
-          beschreibung: suggestedSkill.beschreibung,
-        }
-      : null,
+    suggestedSkill: skillToPayload(suggestedSkill),
+    suggestedLongSkill: skillToPayload(suggestedLongSkill),
+    svvFlag,
+    svvSkill: skillToPayload(svvSkill),
   });
 }

@@ -9,6 +9,7 @@ export const skillFormSchema = z
     level_max: z.coerce.number().int().min(0).max(10),
     beschreibung: z.string().max(2000).optional(),
     aktiv: z.boolean().optional(),
+    ist_lang: z.boolean().optional(),
   })
   .refine((data) => data.level_min <= data.level_max, {
     message: "Level-Min darf nicht größer als Level-Max sein",

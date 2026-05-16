@@ -18,7 +18,9 @@ export default async function EditSkillPage({ params }: EditSkillPageProps) {
 
   const { data: skill } = await supabase
     .from("skills")
-    .select("id, name, kategorie, dauer_minuten, level_min, level_max, beschreibung, aktiv")
+    .select(
+      "id, name, kategorie, dauer_minuten, level_min, level_max, beschreibung, aktiv, ist_lang"
+    )
     .eq("id", params.id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -41,6 +43,7 @@ export default async function EditSkillPage({ params }: EditSkillPageProps) {
             level_max: skill.level_max,
             beschreibung: skill.beschreibung ?? "",
             aktiv: skill.aktiv,
+            ist_lang: skill.ist_lang ?? false,
           }}
         />
       </div>

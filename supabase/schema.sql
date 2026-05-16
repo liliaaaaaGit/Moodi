@@ -55,7 +55,16 @@ hilfreich text check (hilfreich in ('ja'
 'nein')),
 comment text,
 crisis_flag boolean default false,
-svv_flag boolean default false
+svv_flag boolean default false,
+chosen_svv_skill_id uuid references skills(id) on delete set null,
+svv_skill_status text check (svv_skill_status in
+('gemacht'
+,
+'nicht_gemacht'
+,
+'anderer'
+,
+'uebersprungen'))
 );
 -- Settings
 create table settings (

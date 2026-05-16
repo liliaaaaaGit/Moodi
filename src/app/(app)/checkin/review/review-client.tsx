@@ -4,10 +4,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/Card";
 import { PrimaryButton } from "@/components/PrimaryButton";
-import { SectionHeader } from "@/components/SectionHeader";
+import {
+  ReviewSkillSuggestion,
+  ReviewSvvCard,
+} from "@/components/ReviewSkillSuggestion";
 import { SkillPickerSheet } from "@/components/SkillPickerSheet";
 import { Toast } from "@/components/Toast";
-import type { CheckinRecord, SkillSummary } from "@/lib/checkin/types";
+import type { CheckinRecord, SkillStatus, SkillSummary } from "@/lib/checkin/types";
 
 const FIELD_LABELS: { key: keyof CheckinRecord; label: string }[] = [
   { key: "situation", label: "Situation" },
@@ -17,10 +20,18 @@ const FIELD_LABELS: { key: keyof CheckinRecord; label: string }[] = [
   { key: "beduerfnis", label: "Bedürfnis" },
 ];
 
-async function patchCheckin(
-  id: string,
-  body: { chosen_skill_id?: string | null; skill_status: string }
-) {
+type PatchBody = {
+  chosen_skill_id?: string | null;
+  chosen_long_skill_id?: string | null;
+  chosen_svv_skill_id?: string | null;
+  skill_status?: SkillStatus;
+  long_skill_status?: SkillStatus;
+  svv_skill_status?: SkillStatus;
+};
+
+type SheetKind = "short" | "long" | null;
+
+async function patchCheckin(id: string, body: PatchBody) {
   const response = await fetch(`/api/checkin/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -31,19 +42,38 @@ async function patchCheckin(
   }
 }
 
+function isEvaluated(status: SkillStatus) {
+  return status != null;
+}
+
 export function ReviewClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const checkinId = searchParams.get("id");
 
   const [checkin, setCheckin] = useState<CheckinRecord | null>(null);
-  const [skills, setSkills] = useState<SkillSummary[]>([]);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [shortSkills, setShortSkills] = useState<SkillSummary[]>([]);
+  const [longSkills, setLongSkills] = useState<SkillSummary[]>([]);
+  const [sheetKind, setSheetKind] = useState<SheetKind>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const dismissToast = useCallback(() => setToast(null), []);
+
+  const loadCheckin = useCallback(async () => {
+    if (!checkinId) return null;
+
+    const response = await fetch(`/api/checkin/${checkinId}`);
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error ?? "Check-in nicht gefunden");
+    }
+
+    const record = payload.checkin as CheckinRecord;
+    setCheckin(record);
+    return record;
+  }, [checkinId]);
 
   useEffect(() => {
     if (!checkinId) {
@@ -53,20 +83,19 @@ export function ReviewClient() {
 
     async function load() {
       try {
-        const response = await fetch(`/api/checkin/${checkinId}`);
-        const payload = await response.json();
-        if (!response.ok) {
-          setToast(payload.error ?? "Check-in nicht gefunden");
-          return;
-        }
-        const record = payload.checkin as CheckinRecord;
-        setCheckin(record);
+        const record = await loadCheckin();
+        if (!record) return;
 
-        const skillsRes = await fetch(`/api/checkin/skills?level=${record.level_before}`);
-        const skillsPayload = await skillsRes.json();
-        if (skillsRes.ok) {
-          setSkills(skillsPayload.skills ?? []);
-        }
+        const [shortRes, longRes] = await Promise.all([
+          fetch(`/api/checkin/skills?level=${record.level_before}&kind=short`),
+          fetch(`/api/checkin/skills?level=${record.level_before}&kind=long`),
+        ]);
+
+        const shortPayload = await shortRes.json();
+        const longPayload = await longRes.json();
+
+        if (shortRes.ok) setShortSkills(shortPayload.skills ?? []);
+        if (longRes.ok) setLongSkills(longPayload.skills ?? []);
       } catch {
         setToast("Daten konnten nicht geladen werden");
       } finally {
@@ -75,17 +104,15 @@ export function ReviewClient() {
     }
 
     load();
-  }, [checkinId]);
+  }, [checkinId, loadCheckin]);
 
-  async function handleMachIch() {
-    if (!checkin?.suggested_skill_id || !checkinId) return;
+  async function applyPatch(body: PatchBody) {
+    if (!checkinId) return;
     setActing(true);
     try {
-      await patchCheckin(checkinId, {
-        chosen_skill_id: checkin.suggested_skill_id,
-        skill_status: "gemacht",
-      });
-      router.push(`/checkin/after?id=${checkinId}`);
+      await patchCheckin(checkinId, body);
+      router.refresh();
+      await loadCheckin();
     } catch {
       setToast("Konnte nicht gespeichert werden");
     } finally {
@@ -93,34 +120,61 @@ export function ReviewClient() {
     }
   }
 
-  async function handleNichtJetzt() {
-    if (!checkinId) return;
-    setActing(true);
-    try {
-      await patchCheckin(checkinId, { skill_status: "nicht_gemacht" });
-      router.push("/");
-    } catch {
-      setToast("Konnte nicht gespeichert werden");
-    } finally {
-      setActing(false);
-    }
+  // Kurzer Skill: chosen_skill_id + skill_status (unabhängig von lang/SVV)
+  function handleShortMachIch() {
+    if (!checkin?.suggested_skill_id) return;
+    void applyPatch({
+      chosen_skill_id: checkin.suggested_skill_id,
+      skill_status: "gemacht",
+    });
   }
 
-  async function handleOtherSkill(skill: SkillSummary) {
-    if (!checkinId) return;
-    setActing(true);
-    setSheetOpen(false);
-    try {
-      await patchCheckin(checkinId, {
-        chosen_skill_id: skill.id,
-        skill_status: "anderer",
-      });
-      router.push(`/checkin/after?id=${checkinId}`);
-    } catch {
-      setToast("Konnte nicht gespeichert werden");
-    } finally {
-      setActing(false);
-    }
+  function handleShortJetztNicht() {
+    void applyPatch({ skill_status: "nicht_gemacht" });
+  }
+
+  function handleShortOther(skill: SkillSummary) {
+    setSheetKind(null);
+    void applyPatch({
+      chosen_skill_id: skill.id,
+      skill_status: "anderer",
+    });
+  }
+
+  function handleLongMachIch() {
+    if (!checkin?.suggested_long_skill_id) return;
+    void applyPatch({
+      chosen_long_skill_id: checkin.suggested_long_skill_id,
+      long_skill_status: "gemacht",
+    });
+  }
+
+  function handleLongJetztNicht() {
+    void applyPatch({ long_skill_status: "nicht_gemacht" });
+  }
+
+  function handleLongOther(skill: SkillSummary) {
+    setSheetKind(null);
+    void applyPatch({
+      chosen_long_skill_id: skill.id,
+      long_skill_status: "anderer",
+    });
+  }
+
+  /**
+   * SVV nutzt eigene Felder chosen_svv_skill_id + svv_skill_status,
+   * damit kurzer/langer Skill parallel bewertet werden können (additiv).
+   */
+  function handleSvvMachIch() {
+    if (!checkin?.svv_skill?.id) return;
+    void applyPatch({
+      chosen_svv_skill_id: checkin.svv_skill.id,
+      svv_skill_status: "gemacht",
+    });
+  }
+
+  function handleSvvJetztNicht() {
+    void applyPatch({ svv_skill_status: "nicht_gemacht" });
   }
 
   if (loading) {
@@ -142,22 +196,37 @@ export function ReviewClient() {
     return typeof value === "string" && value.trim().length > 0;
   });
 
+  const hasShort = Boolean(checkin.suggested_skill);
+  const hasLong = Boolean(checkin.suggested_long_skill);
+  const hasSvv = checkin.svv_flag && Boolean(checkin.svv_skill);
+  const hasSuggestions = hasShort || hasLong || hasSvv;
+
+  const anyEvaluated =
+    (hasShort && isEvaluated(checkin.skill_status)) ||
+    (hasLong && isEvaluated(checkin.long_skill_status)) ||
+    (hasSvv && isEvaluated(checkin.svv_skill_status));
+
+  const showWeiter = !hasSuggestions || anyEvaluated;
+
+  const sheetSkills = sheetKind === "long" ? longSkills : shortSkills;
+
   return (
     <>
       {toast ? <Toast message={toast} onClose={dismissToast} /> : null}
 
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold text-text-primary">Deine Auswertung</h1>
+      <div className="space-y-10">
+        <h1 className="text-2xl font-semibold text-text-primary">
+          Deine Auswertung
+        </h1>
 
         {checkin.input_raw ? (
-          <p className="text-sm text-text-secondary">{checkin.input_raw}</p>
+          <p className="-mt-4 text-sm text-text-secondary">{checkin.input_raw}</p>
         ) : null}
 
         {structuredFields.length > 0 ? (
           <section className="space-y-3">
-            <SectionHeader>Strukturiert</SectionHeader>
             {structuredFields.map(({ key, label }) => (
-              <Card key={key}>
+              <Card key={key} className="p-5 shadow-soft">
                 <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
                   {label}
                 </p>
@@ -167,58 +236,73 @@ export function ReviewClient() {
           </section>
         ) : null}
 
-        {checkin.suggested_skill ? (
-          <section className="space-y-3">
-            <SectionHeader>Skill-Vorschlag</SectionHeader>
-            <Card className="border border-primary/20 bg-primary/5 p-6">
-              <p className="text-xl font-semibold text-text-primary">
-                {checkin.suggested_skill.name}
-              </p>
-              <p className="mt-2 text-sm text-text-secondary">
-                {checkin.suggested_skill.kategorie}
-                {checkin.suggested_skill.dauer_minuten
-                  ? ` · ${checkin.suggested_skill.dauer_minuten} Min`
-                  : ""}
-              </p>
-              {checkin.suggested_skill.beschreibung ? (
-                <p className="mt-3 text-text-primary">
-                  {checkin.suggested_skill.beschreibung}
-                </p>
-              ) : null}
-            </Card>
-          </section>
-        ) : null}
+        {hasSuggestions ? (
+          <section className="space-y-6">
+            <h2 className="text-xs font-medium uppercase tracking-wider text-text-secondary">
+              Vorschläge
+            </h2>
 
-        <div className="space-y-3 pt-2">
-          {checkin.suggested_skill ? (
-            <PrimaryButton onClick={handleMachIch} disabled={acting}>
-              Mach ich
-            </PrimaryButton>
-          ) : null}
-          <button
-            type="button"
-            onClick={handleNichtJetzt}
+            {hasShort && checkin.suggested_skill ? (
+              <ReviewSkillSuggestion
+                skill={checkin.suggested_skill}
+                status={checkin.skill_status}
+                acting={acting}
+                onMachIch={handleShortMachIch}
+                onJetztNicht={handleShortJetztNicht}
+                onOtherSkill={() => setSheetKind("short")}
+              />
+            ) : null}
+
+            {hasLong && checkin.suggested_long_skill ? (
+              <ReviewSkillSuggestion
+                skill={checkin.suggested_long_skill}
+                status={checkin.long_skill_status}
+                acting={acting}
+                onMachIch={handleLongMachIch}
+                onJetztNicht={handleLongJetztNicht}
+                onOtherSkill={() => setSheetKind("long")}
+              />
+            ) : null}
+
+            {hasSvv && checkin.svv_skill ? (
+              <ReviewSvvCard
+                skill={checkin.svv_skill}
+                status={checkin.svv_skill_status}
+                acting={acting}
+                onMachIch={handleSvvMachIch}
+                onJetztNicht={handleSvvJetztNicht}
+              />
+            ) : null}
+          </section>
+        ) : (
+          <p className="text-center text-sm text-text-secondary">
+            Kein Skill-Vorschlag für dieses Level – du kannst trotzdem
+            fortfahren.
+          </p>
+        )}
+
+        {showWeiter ? (
+          <PrimaryButton
             disabled={acting}
-            className="min-h-touch w-full rounded-2xl border border-accent/50 bg-white px-6 text-lg font-medium text-text-primary shadow-soft disabled:opacity-60"
+            onClick={() => router.push(`/checkin/after?id=${checkinId}`)}
+            className="mt-2"
           >
-            Nicht jetzt
-          </button>
-          <button
-            type="button"
-            onClick={() => setSheetOpen(true)}
-            disabled={acting || skills.length === 0}
-            className="min-h-touch w-full rounded-2xl bg-accent/30 px-6 text-lg font-medium text-text-primary disabled:opacity-60"
-          >
-            Anderer Skill
-          </button>
-        </div>
+            Weiter
+          </PrimaryButton>
+        ) : null}
       </div>
 
       <SkillPickerSheet
-        open={sheetOpen}
-        skills={skills}
-        onClose={() => setSheetOpen(false)}
-        onSelect={handleOtherSkill}
+        open={sheetKind != null}
+        skills={sheetSkills}
+        onClose={() => setSheetKind(null)}
+        onSelect={(skill) => {
+          if (sheetKind === "long") {
+            handleLongOther(skill);
+          } else {
+            handleShortOther(skill);
+          }
+        }}
       />
     </>
   );

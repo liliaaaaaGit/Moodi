@@ -13,13 +13,18 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const levelParam = searchParams.get("level");
+  const kind = searchParams.get("kind") ?? "short";
   const level = levelParam ? Number(levelParam) : NaN;
 
   if (!Number.isInteger(level) || level < 0 || level > 10) {
     return NextResponse.json({ error: "Ungültiges Level" }, { status: 400 });
   }
 
-  const { data: skills, error } = await supabase
+  if (kind !== "short" && kind !== "long") {
+    return NextResponse.json({ error: "Ungültiger Skill-Typ" }, { status: 400 });
+  }
+
+  let query = supabase
     .from("skills")
     .select("id, name, kategorie, dauer_minuten, beschreibung, level_min, level_max")
     .eq("user_id", user.id)
@@ -28,8 +33,19 @@ export async function GET(request: Request) {
     .gte("level_max", level)
     .order("name");
 
+  if (kind === "long") {
+    query = query.eq("ist_lang", true);
+  } else {
+    query = query.eq("ist_lang", false).neq("kategorie", "svv");
+  }
+
+  const { data: skills, error } = await query;
+
   if (error) {
-    return NextResponse.json({ error: "Skills konnten nicht geladen werden" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Skills konnten nicht geladen werden" },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ skills: skills ?? [] });

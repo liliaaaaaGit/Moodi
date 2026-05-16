@@ -1,7 +1,15 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { fetchSvvSkill } from "@/lib/checkin/suggest-skill";
 import { createClient } from "@/lib/supabase/server";
+
+const skillStatusEnum = z.enum([
+  "gemacht",
+  "nicht_gemacht",
+  "anderer",
+  "uebersprungen",
+]);
 
 const patchSchema = z.object({
   level_before: z.number().int().min(0).max(10).optional(),
@@ -14,10 +22,11 @@ const patchSchema = z.object({
   hilfreich: z.enum(["ja", "bisschen", "nein"]).nullable().optional(),
   comment: z.string().max(2000).nullable().optional(),
   chosen_skill_id: z.string().uuid().nullable().optional(),
-  skill_status: z
-    .enum(["gemacht", "nicht_gemacht", "anderer", "uebersprungen"])
-    .nullable()
-    .optional(),
+  chosen_long_skill_id: z.string().uuid().nullable().optional(),
+  chosen_svv_skill_id: z.string().uuid().nullable().optional(),
+  skill_status: skillStatusEnum.nullable().optional(),
+  long_skill_status: skillStatusEnum.nullable().optional(),
+  svv_skill_status: skillStatusEnum.nullable().optional(),
 });
 
 type RouteContext = {
@@ -50,7 +59,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   const { data: checkin, error } = await supabase
     .from("checkins")
     .select(
-      "id, created_at, level_before, level_after, input_raw, situation, gedanken, koerper, gefuehl, beduerfnis, suggested_skill_id, chosen_skill_id, crisis_flag, hilfreich, comment, skill_status"
+      "id, created_at, level_before, level_after, input_raw, situation, gedanken, koerper, gefuehl, beduerfnis, suggested_skill_id, suggested_long_skill_id, chosen_skill_id, chosen_long_skill_id, chosen_svv_skill_id, svv_flag, crisis_flag, hilfreich, comment, skill_status, long_skill_status, svv_skill_status"
     )
     .eq("id", params.id)
     .eq("user_id", user.id)
@@ -60,16 +69,20 @@ export async function GET(_request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "Check-in nicht gefunden" }, { status: 404 });
   }
 
-  const [suggestedSkill, chosenSkill] = await Promise.all([
+  const [suggestedSkill, suggestedLongSkill, svvSkill] = await Promise.all([
     loadSkill(supabase, checkin.suggested_skill_id),
-    loadSkill(supabase, checkin.chosen_skill_id),
+    loadSkill(supabase, checkin.suggested_long_skill_id),
+    checkin.svv_flag
+      ? fetchSvvSkill(supabase, user.id)
+      : Promise.resolve(null),
   ]);
 
   return NextResponse.json({
     checkin: {
       ...checkin,
       suggested_skill: suggestedSkill,
-      chosen_skill: chosenSkill,
+      suggested_long_skill: suggestedLongSkill,
+      svv_skill: svvSkill,
     },
   });
 }
@@ -103,7 +116,19 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   if (body.hilfreich !== undefined) updates.hilfreich = body.hilfreich;
   if (body.comment !== undefined) updates.comment = body.comment;
   if (body.chosen_skill_id !== undefined) updates.chosen_skill_id = body.chosen_skill_id;
+  if (body.chosen_long_skill_id !== undefined) {
+    updates.chosen_long_skill_id = body.chosen_long_skill_id;
+  }
+  if (body.chosen_svv_skill_id !== undefined) {
+    updates.chosen_svv_skill_id = body.chosen_svv_skill_id;
+  }
   if (body.skill_status !== undefined) updates.skill_status = body.skill_status;
+  if (body.long_skill_status !== undefined) {
+    updates.long_skill_status = body.long_skill_status;
+  }
+  if (body.svv_skill_status !== undefined) {
+    updates.svv_skill_status = body.svv_skill_status;
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "Keine Felder zum Aktualisieren" }, { status: 400 });

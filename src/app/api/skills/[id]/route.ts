@@ -36,6 +36,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       level_max: parsed.data.level_max,
       beschreibung: parsed.data.beschreibung?.trim() || null,
       aktiv: parsed.data.aktiv ?? true,
+      ist_lang: parsed.data.ist_lang ?? false,
     })
     .eq("id", params.id)
     .eq("user_id", user.id)

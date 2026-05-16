@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       level_max: parsed.data.level_max,
       beschreibung: parsed.data.beschreibung?.trim() || null,
       aktiv: parsed.data.aktiv ?? true,
+      ist_lang: parsed.data.ist_lang ?? false,
     })
     .select("id")
     .single();

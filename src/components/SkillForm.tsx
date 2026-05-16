@@ -13,6 +13,7 @@ export type SkillFormValues = {
   level_max: number;
   beschreibung: string;
   aktiv: boolean;
+  ist_lang: boolean;
 };
 
 type SkillFormProps = {
@@ -22,12 +23,13 @@ type SkillFormProps = {
 
 const defaultValues: SkillFormValues = {
   name: "",
-  kategorie: "reflexion",
+  kategorie: "körper",
   dauer_minuten: 5,
   level_min: 0,
   level_max: 5,
   beschreibung: "",
   aktiv: true,
+  ist_lang: false,
 };
 
 export function SkillForm({ initial, skillId }: SkillFormProps) {
@@ -152,6 +154,22 @@ export function SkillForm({ initial, skillId }: SkillFormProps) {
           className={inputClass}
         />
       </Field>
+
+      <label className="flex items-center gap-3 text-text-primary">
+        <input
+          type="checkbox"
+          checked={values.ist_lang}
+          onChange={(e) =>
+            setValues((v) => ({
+              ...v,
+              ist_lang: e.target.checked,
+              kategorie: e.target.checked ? "lang" : v.kategorie === "lang" ? "körper" : v.kategorie,
+            }))
+          }
+          className="h-5 w-5 rounded border-accent text-primary"
+        />
+        Längerer Skill (Thrive)
+      </label>
 
       <label className="flex items-center gap-3 text-text-primary">
         <input
