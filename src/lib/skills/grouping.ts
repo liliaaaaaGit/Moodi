@@ -7,7 +7,6 @@ export type SkillListRow = {
   dauer_minuten: number | null;
   level_min: number;
   level_max: number;
-  aktiv: boolean;
   ist_lang: boolean;
 };
 

@@ -12,7 +12,6 @@ export type SkillFormValues = {
   level_min: number;
   level_max: number;
   beschreibung: string;
-  aktiv: boolean;
   ist_lang: boolean;
 };
 
@@ -28,7 +27,6 @@ const defaultValues: SkillFormValues = {
   level_min: 0,
   level_max: 5,
   beschreibung: "",
-  aktiv: true,
   ist_lang: false,
 };
 
@@ -40,6 +38,7 @@ export function SkillForm({ initial, skillId }: SkillFormProps) {
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -71,6 +70,32 @@ export function SkillForm({ initial, skillId }: SkillFormProps) {
       setError("Netzwerkfehler");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!skillId) return;
+    if (!window.confirm("Skill wirklich löschen? Das kann nicht rückgängig gemacht werden.")) {
+      return;
+    }
+
+    setError(null);
+    setDeleting(true);
+
+    try {
+      const response = await fetch(`/api/skills/${skillId}`, { method: "DELETE" });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error ?? "Löschen fehlgeschlagen");
+        return;
+      }
+
+      router.push("/skills");
+      router.refresh();
+    } catch {
+      setError("Netzwerkfehler");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -171,21 +196,22 @@ export function SkillForm({ initial, skillId }: SkillFormProps) {
         Längerer Skill (Thrive)
       </label>
 
-      <label className="flex items-center gap-3 text-text-primary">
-        <input
-          type="checkbox"
-          checked={values.aktiv}
-          onChange={(e) => setValues((v) => ({ ...v, aktiv: e.target.checked }))}
-          className="h-5 w-5 rounded border-accent text-primary"
-        />
-        Aktiv
-      </label>
-
       {error ? <p className="text-sm text-warning">{error}</p> : null}
 
-      <PrimaryButton type="submit" disabled={loading}>
+      <PrimaryButton type="submit" disabled={loading || deleting}>
         {loading ? "Speichert…" : "Speichern"}
       </PrimaryButton>
+
+      {skillId ? (
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={loading || deleting}
+          className="min-h-touch w-full rounded-2xl border border-warning/40 bg-white px-6 text-lg font-medium text-warning shadow-soft transition-opacity disabled:opacity-60"
+        >
+          {deleting ? "Wird gelöscht…" : "Skill löschen"}
+        </button>
+      ) : null}
     </form>
   );
 }

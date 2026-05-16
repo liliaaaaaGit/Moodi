@@ -30,7 +30,7 @@ export default async function SkillsPage() {
   const { data: skills } = await supabase
     .from("skills")
     .select(
-      "id, name, kategorie, dauer_minuten, level_min, level_max, aktiv, ist_lang"
+      "id, name, kategorie, dauer_minuten, level_min, level_max, ist_lang"
     )
     .eq("user_id", user.id)
     .order("name");
