@@ -28,8 +28,8 @@ Selbstverletzung,
 ,
 "kann nicht mehr")
 -> crisis_flag = true -> kein KI-Strukturieren-Output anzeigen,
-sofortige Krisen-Anzeige (TIPP-Anleitung + Telefonseelsorge
-0800 111 0 111 + Hinweis "112 bei akuter Gefahr").
+sofortige Krisen-Anzeige (3 kurze Skills + Umgebungswechsel +
+Bayrischer Krisendienst 0800 655 3000 + Hinweis "112 bei akuter Gefahr").
 CODE-STIL: Server Components by default,
 "use client" nur wo
 noetig, async/await, klare Komponenten, keine over-engineerten

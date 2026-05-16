@@ -71,7 +71,7 @@ begin
     (p_user_id, 'Augenmaske auf, 5 Min', 'reizreduktion', 5, 5, 8),
     (p_user_id, 'Alle Tabs schliessen, nur ein Fenster', 'reizreduktion', 2, 5, 8),
     (p_user_id, 'TIPP: Eis ins Gesicht + langsames Ausatmen + Muskeln an/aus', 'krise', 5, 9, 10),
-    (p_user_id, 'Telefonseelsorge 0800 111 0 111 anrufen', 'krise', 30, 9, 10)
+    (p_user_id, 'Bayrischer Krisendienst 0800 655 3000 anrufen', 'krise', 30, 9, 10)
   on conflict (user_id, name) do nothing;
 
   insert into habits (user_id, name, beschreibung, target_minutes)
