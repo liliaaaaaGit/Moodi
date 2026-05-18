@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
-import { getBerlinToday } from "@/lib/date/berlin";
+import { getBerlinTimeParts, getBerlinToday } from "@/lib/date/berlin";
 import {
+  getDueReminderTimes,
   isValidReminderSlot,
   parsePushSubscription,
-  reminderTimeMatches,
-  SLOT_REMINDER_TIME,
   type ReminderSlot,
 } from "@/lib/push/cron";
 import { sendPushNotification } from "@/lib/push/vapid";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 function verifyCronSecret(request: Request): boolean {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) return process.env.NODE_ENV !== "production";
-
-  const auth = request.headers.get("authorization");
-  return auth === `Bearer ${secret}`;
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  if (!cronSecret) {
+    console.error("CRON_SECRET fehlt — automatische Erinnerungen werden blockiert");
+    return false;
+  }
+  const authHeader = request.headers.get("authorization");
+  return authHeader === `Bearer ${cronSecret}`;
 }
 
 async function userHasIncompleteHabits(
@@ -45,29 +46,26 @@ async function userHasIncompleteHabits(
 
 export async function GET(request: Request) {
   if (!verifyCronSecret(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      {
+        error:
+          "Unauthorized — CRON_SECRET in Vercel setzen und mit Authorization: Bearer übereinstimmen",
+      },
+      { status: 401 }
+    );
   }
 
   const { searchParams } = new URL(request.url);
   const slotParam = searchParams.get("slot");
+  const slot: ReminderSlot | null =
+    slotParam && isValidReminderSlot(slotParam) ? slotParam : null;
 
-  if (!isValidReminderSlot(slotParam)) {
-    return NextResponse.json({ error: "Ungültiger slot" }, { status: 400 });
-  }
-
-  const slot = slotParam as ReminderSlot;
+  const berlinNow = getBerlinTimeParts();
+  const berlinTimeLabel = `${String(berlinNow.hour).padStart(2, "0")}:${String(berlinNow.minute).padStart(2, "0")}`;
 
   const title = "Anspannung";
-  let body = "";
-
-  if (slot === "habit") {
-    body = "Schon Atem-Ritual gemacht?";
-  } else {
-    body = "Magst du einen kurzen Check-in machen?";
-  }
-
-  const targetTime =
-    slot === "habit" ? SLOT_REMINDER_TIME.evening : SLOT_REMINDER_TIME[slot];
+  const checkinBody = "Magst du einen kurzen Check-in machen?";
+  const habitBody = "Schon Atem-Ritual gemacht?";
 
   const supabase = createAdminClient();
   const today = getBerlinToday();
@@ -92,22 +90,17 @@ export async function GET(request: Request) {
       continue;
     }
 
-    if (slot !== "habit" && !reminderTimeMatches(row.reminder_times, targetTime)) {
+    const dueTimes = getDueReminderTimes(row.reminder_times);
+    if (dueTimes.length === 0) {
       skipped += 1;
       continue;
     }
 
-    if (slot === "habit") {
-      if (!reminderTimeMatches(row.reminder_times, targetTime)) {
-        skipped += 1;
-        continue;
-      }
-      const incomplete = await userHasIncompleteHabits(supabase, row.user_id, today);
-      if (!incomplete) {
-        skipped += 1;
-        continue;
-      }
-    }
+    const sendHabit =
+      slot === "habit" &&
+      (await userHasIncompleteHabits(supabase, row.user_id, today));
+
+    const body = sendHabit ? habitBody : checkinBody;
 
     try {
       await sendPushNotification(subscription, { title, body });
@@ -120,7 +113,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     slot,
-    targetTime,
+    berlinTime: berlinTimeLabel,
     sent,
     skipped,
     failures: failures.length,

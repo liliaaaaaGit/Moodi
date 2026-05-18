@@ -11,10 +11,6 @@
     {
       "path": "/api/cron/reminders?slot=evening",
       "schedule": "0 19 * * *"
-    },
-    {
-      "path": "/api/cron/reminders?slot=habit",
-      "schedule": "0 19 * * *"
     }
   ]
 }

@@ -39,5 +39,8 @@ PWA PUSH (Vercel ENV):
   (PushOptIn / pushManager.subscribe); nach Aenderung neu deployen.
 - VAPID_PRIVATE_KEY — nur Server (Cron / web-push senden).
 - VAPID_SUBJECT — z.B. mailto:…
-- CRON_SECRET — Absicherung von /api/cron/reminders
+- CRON_SECRET — PFLICHT in Vercel fuer /api/cron/reminders (Bearer-Header);
+  ohne Variable schlagen automatische Erinnerungen fehl (401)
+- Cron-Zeiten UTC in vercel.json (8/13/19), Erinnerungen pruefen Berlin-Zeit
+  mit ~55 Min Fenster (Hobby: Cron kann innerhalb der Stunde ausloesen)
 - Kein VAPID_PUBLIC_KEY ohne NEXT_PUBLIC_ — wird im Client nicht gelesen.
