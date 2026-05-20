@@ -1,7 +1,5 @@
-import { getBerlinHour } from "@/lib/date/berlin";
 
 export type HistoryRange = "week" | "month" | "all";
-export type TimeBucket = "morning" | "midday" | "evening" | "night";
 
 export type RawCheckin = {
   id: string;
@@ -12,7 +10,14 @@ export type RawCheckin = {
   chosen_skill_id: string | null;
   hilfreich: string | null;
   trigger_id: string | null;
+  not_spiraling_context: string | null;
   triggers?: { label: string } | null;
+};
+
+export type RankedInsightItem = {
+  label: string;
+  count: number;
+  avgLevel?: number;
 };
 
 type TriggerJoinRow = { label: string } | { label: string }[] | null;
@@ -38,12 +43,6 @@ export function normalizeHistoryCheckins<T extends Omit<RawCheckin, "triggers"> 
 export type SkillRow = { id: string; name: string };
 
 const WEEKDAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-const BUCKET_LABELS: Record<TimeBucket, string> = {
-  morning: "Morgen",
-  midday: "Mittag",
-  evening: "Abend",
-  night: "Nacht",
-};
 
 function getBerlinWeekdayIndex(iso: string): number {
   const short = new Intl.DateTimeFormat("en-US", {
@@ -60,13 +59,6 @@ function getBerlinWeekdayIndex(iso: string): number {
     Sun: 6,
   };
   return map[short] ?? 0;
-}
-
-export function getTimeBucket(hour: number): TimeBucket {
-  if (hour >= 6 && hour < 11) return "morning";
-  if (hour >= 11 && hour < 16) return "midday";
-  if (hour >= 16 && hour < 21) return "evening";
-  return "night";
 }
 
 function daysAgoBerlin(days: number): string {
@@ -166,44 +158,54 @@ function extractHelpfulSkills(
     .map(([name, count]) => ({ name, count }));
 }
 
-function buildHeatmap(checkins: RawCheckin[]) {
-  const sums = new Map<string, { total: number; count: number }>();
+/** Top-6 Stressor-Labels (Level ≥ 6) nach Häufigkeit. */
+export function extractStressors(
+  checkins: RawCheckin[],
+  range: HistoryRange,
+  limit = 6
+): RankedInsightItem[] {
+  const groups = new Map<string, { count: number; levelSum: number }>();
 
-  for (const checkin of checkins) {
-    const weekday = getBerlinWeekdayIndex(checkin.created_at);
-    const bucket = getTimeBucket(getBerlinHour(new Date(checkin.created_at)));
-    const key = `${weekday}-${bucket}`;
-    const entry = sums.get(key) ?? { total: 0, count: 0 };
-    entry.total += checkin.level_before;
+  for (const checkin of filterByRange(checkins, range)) {
+    if (checkin.level_before < 6 || !checkin.trigger_id) continue;
+    const label = checkin.triggers?.label?.trim();
+    if (!label) continue;
+
+    const entry = groups.get(label) ?? { count: 0, levelSum: 0 };
     entry.count += 1;
-    sums.set(key, entry);
+    entry.levelSum += checkin.level_before;
+    groups.set(label, entry);
   }
 
-  const cells: {
-    weekday: number;
-    weekdayLabel: string;
-    bucket: TimeBucket;
-    bucketLabel: string;
-    avgLevel: number | null;
-    count: number;
-  }[] = [];
+  return Array.from(groups.entries())
+    .map(([label, entry]) => ({
+      label,
+      count: entry.count,
+      avgLevel: Math.round((entry.levelSum / entry.count) * 10) / 10,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
 
-  const buckets: TimeBucket[] = ["morning", "midday", "evening", "night"];
-  for (let weekday = 0; weekday < 7; weekday += 1) {
-    for (const bucket of buckets) {
-      const entry = sums.get(`${weekday}-${bucket}`);
-      cells.push({
-        weekday,
-        weekdayLabel: WEEKDAY_LABELS[weekday],
-        bucket,
-        bucketLabel: BUCKET_LABELS[bucket],
-        avgLevel: entry ? entry.total / entry.count : null,
-        count: entry?.count ?? 0,
-      });
-    }
+/** Top-6 Entspannungskontexte (Level ≤ 5, not_spiraling_context gesetzt). */
+export function extractNotSpiraling(
+  checkins: RawCheckin[],
+  range: HistoryRange,
+  limit = 6
+): RankedInsightItem[] {
+  const groups = new Map<string, number>();
+
+  for (const checkin of filterByRange(checkins, range)) {
+    if (checkin.level_before > 5) continue;
+    const label = checkin.not_spiraling_context?.trim();
+    if (!label) continue;
+    groups.set(label, (groups.get(label) ?? 0) + 1);
   }
 
-  return cells;
+  return Array.from(groups.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
 }
 
 function buildBreathRitual(
@@ -264,20 +266,10 @@ export function buildHistoryAnalytics(
   return {
     range,
     chartPoints,
-    heatmap: buildHeatmap(filtered),
+    stressors: extractStressors(allCheckins, range),
+    notSpiraling: extractNotSpiraling(allCheckins, range),
     topTriggers: extractTopTriggers(allCheckins, range),
     helpfulSkills: extractHelpfulSkills(allCheckins, skillMap),
     breathRitual: buildBreathRitual(breathCompletions),
-    weekdayLabels: WEEKDAY_LABELS,
-    bucketLabels: BUCKET_LABELS,
   };
-}
-
-/** Blau-Verlauf für Heatmap-Zellen (kein Rot). */
-export function heatmapColor(avgLevel: number | null): string {
-  if (avgLevel === null) return "#F5F8FC";
-  if (avgLevel <= 3) return "#EAF2F9";
-  if (avgLevel <= 5) return "#C5D8E5";
-  if (avgLevel <= 8) return "#7BA7C9";
-  return "#3D5F7A";
 }

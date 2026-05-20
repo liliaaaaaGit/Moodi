@@ -1,13 +1,22 @@
 import OpenAI from "openai";
 import { z } from "zod";
 
-export function buildExtractSystemPrompt(existingLabels: string[]): string {
+export function buildExtractSystemPrompt(
+  existingLabels: string[],
+  levelBefore: number
+): string {
   const labelBlock =
     existingLabels.length > 0
       ? existingLabels.map((l) => `   - ${l}`).join("\n")
       : "   (noch keine)";
 
   return `Du bist ein präziser Assistent, der Selbstbeobachtungs-Texte strukturiert. Extrahiere die folgenden Felder. Antworte als JSON. Wenn ein Feld nicht erwähnt wird: leerer String. Erfinde nichts, paraphrasiere knapp.
+
+Kontext Anspannung:
+Das aktuelle Anspannungslevel der Person ist ${levelBefore} (Skala 0–10, Grundlevel ~5). Nutze dieses Level als zusätzliches Signal zur Interpretation der Situation — auch wenn die Person nicht explizit sagt dass etwas stressig ist.
+- Level 0–5 = entspannt / unter Grundlevel ("Not Spiraling For Once")
+- Level 6–7 = mittel erhöht
+- Level 8–10 = hoch angespannt (Stressor-Territorium)
 
 Felder:
 - situation (string)
@@ -16,19 +25,22 @@ Felder:
 - gefuehl (string)
 - beduerfnis (string)
 - svv_intent (boolean): nur true bei explizitem Wunsch sich zu verletzen
-- trigger (string): Identifiziere den konkreten ZUGRUNDELIEGENDEN Auslöser der Anspannung — das, was sie tatsächlich verursacht.
+- not_spiraling_context (string): Was macht die Situation entspannt / gut? Nur befüllen wenn Level ≤ 5 UND eine erkennbare Entspannungsquelle im Text (z.B. "Auto fahren", "draußen sein", "Musik hören", "allein zuhause"). Sonst leerer String.
+- trigger (string): konkreter Auslöser der Anspannung (Stressor). Sei spezifisch, nicht generisch.
 
-Trigger-Regeln:
-1. Bestehende Trigger-Labels dieses Users:
+Trigger-Regeln (Feld trigger):
+GUTE Beispiele: "Deadline Projektabgabe", "Streit mit Mama", "Prüfungsangst Mathe", "Warten auf Arzttermin"
+SCHLECHTE Beispiele (zu generisch, NICHT verwenden): "Stress", "Angst", "Druck", "Probleme", "Arbeit"
+
+Nutze das Anspannungslevel als Signal: wenn Level ≥ 6 und eine Situation beschrieben wird, ist das sehr wahrscheinlich ein Stressor — auch wenn die Person das nicht explizit sagt.
+Fülle trigger nur wenn Level ≥ 6, außer der Text nennt trotzdem klar einen konkreten Stressor.
+
+Bestehende Labels:
 ${labelBlock}
 
-2. Wenn der erkannte Trigger semantisch zu einem bestehenden Label passt: nutze EXAKT dieses Label, Wort für Wort.
-
-3. Wenn kein bestehendes Label passt: formuliere ein neues, kurzes Label (2–5 Wörter, Deutsch). Spezifisch, nicht generisch:
-   - NICHT: 'Stress', 'Angst', 'Müdigkeit', 'Druck', 'Überforderung' allein
-   - JA: 'Deadline-Druck Arbeit', 'Streit mit Partner', 'Schlafmangel', 'Reizüberflutung Büro', 'Soziale Erwartungen', 'Gedankenkarussell nachts'
-
-4. Wenn der Trigger aus dem Text wirklich nicht erkennbar ist (z.B. nur 'mir gehts schlecht'): leerer String ''.
+Wenn der erkannte Stressor semantisch zu einem bestehenden Label passt: nutze EXAKT dieses Label, Wort für Wort.
+Wenn kein bestehendes Label passt: neues Label (2–5 Wörter, Deutsch, spezifisch).
+Wenn wirklich nicht erkennbar: leerer String "".
 
 Antworte ausschließlich mit gültigem JSON, keine Markdown-Codeblöcke.`;
 }
@@ -40,6 +52,7 @@ const extractSchema = z.object({
   gefuehl: z.string(),
   beduerfnis: z.string(),
   svv_intent: z.boolean(),
+  not_spiraling_context: z.string(),
   trigger: z.string(),
 });
 
@@ -50,6 +63,29 @@ export class ExtractParseError extends Error {
     super(message);
     this.name = "ExtractParseError";
   }
+}
+
+const GENERIC_TRIGGER_LABELS = new Set(
+  ["stress", "angst", "druck", "probleme", "arbeit", "müdigkeit", "überforderung"].map(
+    (s) => s.toLowerCase()
+  )
+);
+
+/** Serverseitig zu generische Trigger-Labels verwerfen. */
+export function sanitizeTriggerLabel(label: string): string {
+  const trimmed = label.trim();
+  if (!trimmed) return "";
+  const normalized = trimmed.toLowerCase();
+  if (GENERIC_TRIGGER_LABELS.has(normalized)) return "";
+  return trimmed;
+}
+
+export function sanitizeNotSpiralingContext(
+  levelBefore: number,
+  value: string
+): string {
+  if (levelBefore > 5) return "";
+  return value.trim();
 }
 
 export async function extractCheckinText(
@@ -67,13 +103,16 @@ export async function extractCheckinText(
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0.2,
-    max_tokens: 350,
+    max_tokens: 420,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: buildExtractSystemPrompt(existingLabels) },
+      {
+        role: "system",
+        content: buildExtractSystemPrompt(existingLabels, level),
+      },
       {
         role: "user",
-        content: `Anspannungslevel: ${level}/10\n\nText:\n${text}`,
+        content: `Anspannungslevel (level_before): ${level}/10\n\nText:\n${text}`,
       },
     ],
   });
@@ -95,5 +134,12 @@ export async function extractCheckinText(
     throw new ExtractParseError("KI-Antwort hat ein ungültiges Format");
   }
 
-  return parsed.data;
+  return {
+    ...parsed.data,
+    trigger: sanitizeTriggerLabel(parsed.data.trigger),
+    not_spiraling_context: sanitizeNotSpiralingContext(
+      level,
+      parsed.data.not_spiraling_context
+    ),
+  };
 }

@@ -76,6 +76,7 @@ export async function POST(request: Request) {
   let extracted = { ...emptyExtracted };
   let svvFlag = false;
   let triggerId: string | null = null;
+  let notSpiralingContext: string | null = null;
 
   if (trimmedText) {
     try {
@@ -88,12 +89,14 @@ export async function POST(request: Request) {
         beduerfnis: aiResult.beduerfnis,
       };
       svvFlag = aiResult.svv_intent;
+      notSpiralingContext = aiResult.not_spiraling_context.trim() || null;
 
-      if (aiResult.trigger.trim().length > 0) {
+      const triggerLabel = aiResult.trigger.trim();
+      if (triggerLabel.length > 0 && level >= 6) {
         triggerId = await resolveTriggerId(
           supabase,
           user.id,
-          aiResult.trigger,
+          triggerLabel,
           existingTriggers
         );
       }
@@ -117,6 +120,7 @@ export async function POST(request: Request) {
   const shortIds = suggestedShortSkills.map((s) => s.id);
   const svvSkill = svvFlag ? await fetchSvvSkill(supabase, user.id) : null;
 
+  // Spalte not_spiraling_context: supabase/migration_v5_not_spiraling.sql (manuell in Supabase)
   const { data, error } = await supabase
     .from("checkins")
     .insert({
@@ -133,6 +137,7 @@ export async function POST(request: Request) {
       suggested_long_skill_id: suggestedLongSkill?.id ?? null,
       svv_flag: svvFlag,
       trigger_id: triggerId,
+      not_spiraling_context: notSpiralingContext,
       crisis_flag: false,
     })
     .select("id")

@@ -3,31 +3,24 @@
 import { clsx } from "clsx";
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/Card";
-import { HistoryHeatmap } from "@/components/history/HistoryHeatmap";
 import { HistoryLineChart, type ChartPoint } from "@/components/history/HistoryLineChart";
+import { HistoryRankedList } from "@/components/history/HistoryRankedList";
 import { SectionHeader } from "@/components/SectionHeader";
 import { UI_FEATURES } from "@/lib/features";
-import type { HistoryRange, TimeBucket } from "@/lib/history/analytics";
+import type { HistoryRange, RankedInsightItem } from "@/lib/history/analytics";
 import { topTriggersSectionTitle } from "@/lib/history/analytics";
 
 type HistoryData = {
   range: HistoryRange;
   chartPoints: ChartPoint[];
-  heatmap: {
-    weekday: number;
-    weekdayLabel: string;
-    bucket: TimeBucket;
-    bucketLabel: string;
-    avgLevel: number | null;
-    count: number;
-  }[];
+  stressors: RankedInsightItem[];
+  notSpiraling: RankedInsightItem[];
   topTriggers: { label: string; count: number }[];
   helpfulSkills: { name: string; count: number }[];
   breathRitual: {
     days: { date: string; label: string; completed: boolean }[];
     completedCount: number;
   };
-  weekdayLabels: string[];
 };
 
 const TABS: { id: HistoryRange; label: string }[] = [
@@ -91,12 +84,36 @@ export function HistoryClient() {
             </div>
           </Card>
 
-          <Card className="p-5">
-            <SectionHeader>Wann ist die Anspannung hoch?</SectionHeader>
-            <div className="mt-4">
-              <HistoryHeatmap cells={data.heatmap} weekdayLabels={data.weekdayLabels} />
+          {range === "week" ? (
+            <Card className="p-5">
+              <p className="text-sm text-text-secondary">
+                Wechsle zu Monat oder Alles für diese Auswertung.
+              </p>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              <Card className="p-5">
+                <SectionHeader>Stressors</SectionHeader>
+                <div className="mt-4">
+                  <HistoryRankedList
+                    items={data.stressors}
+                    barColor="#C97B7B"
+                    showAvgLevel
+                  />
+                </div>
+              </Card>
+
+              <Card className="p-5">
+                <SectionHeader>Not Spiraling For Once</SectionHeader>
+                <div className="mt-4">
+                  <HistoryRankedList
+                    items={data.notSpiraling}
+                    barColor="#7BA7C9"
+                  />
+                </div>
+              </Card>
             </div>
-          </Card>
+          )}
 
           <section className="space-y-3">
             <SectionHeader>{topTriggersSectionTitle(data.range)}</SectionHeader>

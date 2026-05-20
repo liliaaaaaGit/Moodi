@@ -74,6 +74,7 @@ svv_skill_status text check (svv_skill_status in
 ,
 'uebersprungen')),
 trigger_id uuid references triggers(id) on delete set null,
+not_spiraling_context text,
 suggested_short_skill_ids uuid[] default '{}'::uuid[]
 );
 -- Settings

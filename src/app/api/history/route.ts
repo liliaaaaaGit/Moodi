@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     supabase
       .from("checkins")
       .select(
-        "id, created_at, level_before, situation, input_raw, chosen_skill_id, hilfreich, trigger_id, triggers(label)"
+        "id, created_at, level_before, situation, input_raw, chosen_skill_id, hilfreich, trigger_id, not_spiraling_context, triggers(label)"
       )
       .eq("user_id", user.id)
       .eq("crisis_flag", false)
