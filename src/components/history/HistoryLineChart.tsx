@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { useRouter } from "next/navigation";
@@ -26,11 +26,13 @@ type HistoryLineChartProps = {
 type ActivePoint = {
   checkinId: string;
   level: number;
+  created_at: string;
   x: number;
   y: number;
 };
 
 const BERLIN_TZ = "Europe/Berlin";
+const LONG_PRESS_MS = 500;
 
 function berlinDayKey(iso: string): string {
   return new Date(iso).toLocaleDateString("en-CA", { timeZone: BERLIN_TZ });
@@ -54,6 +56,16 @@ function formatWeekdayTick(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return format(date, "EEE", { locale: de }).replace(/\.$/, "");
+}
+
+/** Wochentag + Uhrzeit in Europe/Berlin, z. B. "So 01:14". */
+function formatPointDateTime(iso: string): string {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const berlinLocal = new Date(
+    parsed.toLocaleString("en-US", { timeZone: BERLIN_TZ })
+  );
+  return format(berlinLocal, "EEE HH:mm", { locale: de }).replace(/\.$/, "");
 }
 
 function ChartDot({
@@ -83,6 +95,7 @@ function ChartDot({
         onActivate({
           checkinId: payload.id,
           level: payload.level,
+          created_at: payload.created_at,
           x: cx,
           y: cy,
         });
@@ -94,7 +107,20 @@ function ChartDot({
 export function HistoryLineChart({ data }: HistoryLineChartProps) {
   const router = useRouter();
   const [activePoint, setActivePoint] = useState<ActivePoint | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dayTicks = useMemo(() => buildDayTicks(data), [data]);
+
+  function clearLongPressTimer() {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }
+
+  function openCheckinDetail(checkinId: string) {
+    clearLongPressTimer();
+    router.push(`/history/${checkinId}`);
+  }
 
   if (data.length === 0) {
     return (
@@ -107,7 +133,7 @@ export function HistoryLineChart({ data }: HistoryLineChartProps) {
   return (
     <div className="relative w-full" onClick={() => setActivePoint(null)}>
       <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={data} margin={{ top: 10, right: 16, left: -16, bottom: 0 }}>
+        <LineChart data={data} margin={{ top: 10, right: 16, left: 8, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e8eef4" vertical={false} />
           <XAxis
             dataKey="created_at"
@@ -119,7 +145,7 @@ export function HistoryLineChart({ data }: HistoryLineChartProps) {
           <YAxis
             domain={[0, 10]}
             ticks={[0, 2, 4, 6, 8, 10]}
-            width={28}
+            width={24}
             tick={{ fontSize: 11, fill: "#6B7A8C" }}
           />
           <Line
@@ -127,30 +153,45 @@ export function HistoryLineChart({ data }: HistoryLineChartProps) {
             dataKey="level"
             stroke="#7BA7C9"
             strokeWidth={2.5}
-            dot={(props) => (
-              <ChartDot {...props} onActivate={setActivePoint} />
-            )}
-            activeDot={(props) => (
-              <ChartDot {...props} onActivate={setActivePoint} />
-            )}
+            dot={(props) => <ChartDot {...props} onActivate={setActivePoint} />}
+            activeDot={(props) => <ChartDot {...props} onActivate={setActivePoint} />}
           />
         </LineChart>
       </ResponsiveContainer>
 
       {activePoint ? (
         <div
-          className="absolute z-10 flex cursor-pointer items-center gap-3 rounded-2xl border border-accent bg-white px-4 py-3 shadow-soft-lg"
+          className="absolute z-10 min-w-[140px] cursor-pointer rounded-2xl border border-accent bg-white px-4 py-3 shadow-soft-lg"
           style={{
-            top: activePoint.y - 70,
-            left: Math.max(8, activePoint.x - 60),
+            top: Math.max(8, activePoint.y - 88),
+            left: Math.max(8, Math.min(activePoint.x - 70, 200)),
           }}
           onClick={(event) => {
             event.stopPropagation();
-            router.push(`/history/${activePoint.checkinId}`);
+            openCheckinDetail(activePoint.checkinId);
           }}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            clearLongPressTimer();
+            longPressTimerRef.current = setTimeout(() => {
+              openCheckinDetail(activePoint.checkinId);
+            }, LONG_PRESS_MS);
+          }}
+          onPointerUp={(event) => {
+            event.stopPropagation();
+            clearLongPressTimer();
+          }}
+          onPointerLeave={clearLongPressTimer}
+          onPointerCancel={clearLongPressTimer}
         >
-          <span className="text-3xl font-bold text-primary">{activePoint.level}</span>
-          <span className="text-sm text-text-secondary">Eintrag ansehen →</span>
+          <p className="text-sm font-medium text-text-primary">
+            {formatPointDateTime(activePoint.created_at)}
+          </p>
+          <p className="mt-1 text-sm text-text-secondary">
+            Anspannung:{" "}
+            <span className="font-semibold text-primary">{activePoint.level}</span>
+          </p>
+          <p className="mt-2 text-[10px] text-text-secondary">Tippen zum Öffnen →</p>
         </div>
       ) : null}
     </div>
