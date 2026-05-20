@@ -17,8 +17,62 @@ export type RawCheckin = {
 export type RankedInsightItem = {
   label: string;
   count: number;
-  avgLevel?: number;
+  avgLevel: number;
 };
+
+type LabelGroup = {
+  displayLabel: string;
+  count: number;
+  levelSum: number;
+};
+
+function normalizeLabelKey(label: string): string {
+  return label.trim().toLowerCase();
+}
+
+function addToLabelGroup(
+  groups: Map<string, LabelGroup>,
+  rawLabel: string,
+  levelBefore: number
+) {
+  const trimmed = rawLabel.trim();
+  if (!trimmed) return;
+
+  const key = normalizeLabelKey(trimmed);
+  const existing = groups.get(key);
+  if (existing) {
+    existing.count += 1;
+    existing.levelSum += levelBefore;
+    return;
+  }
+
+  groups.set(key, {
+    displayLabel: trimmed,
+    count: 1,
+    levelSum: levelBefore,
+  });
+}
+
+function toRankedItems(
+  groups: Map<string, LabelGroup>,
+  limit: number,
+  tieBreakByAvgLevel: boolean
+): RankedInsightItem[] {
+  return Array.from(groups.values())
+    .map((entry) => ({
+      label: entry.displayLabel,
+      count: entry.count,
+      avgLevel: Math.round((entry.levelSum / entry.count) * 10) / 10,
+    }))
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      if (tieBreakByAvgLevel && b.avgLevel !== a.avgLevel) {
+        return b.avgLevel - a.avgLevel;
+      }
+      return a.label.localeCompare(b.label, "de");
+    })
+    .slice(0, limit);
+}
 
 type TriggerJoinRow = { label: string } | { label: string }[] | null;
 
@@ -128,54 +182,40 @@ function extractHelpfulSkills(
     .map(([name, count]) => ({ name, count }));
 }
 
-/** Top-6 Stressor-Labels (Level ≥ 6) nach Häufigkeit. */
+/** Top-5 Stressor-Labels (Level ≥ 6), gruppiert case-insensitive nach TRIM. */
 export function extractStressors(
   checkins: RawCheckin[],
   range: HistoryRange,
-  limit = 6
+  limit = 5
 ): RankedInsightItem[] {
-  const groups = new Map<string, { count: number; levelSum: number }>();
+  const groups = new Map<string, LabelGroup>();
 
   for (const checkin of filterByRange(checkins, range)) {
     if (checkin.level_before < 6 || !checkin.trigger_id) continue;
-    const label = checkin.triggers?.label?.trim();
+    const label = checkin.triggers?.label;
     if (!label) continue;
-
-    const entry = groups.get(label) ?? { count: 0, levelSum: 0 };
-    entry.count += 1;
-    entry.levelSum += checkin.level_before;
-    groups.set(label, entry);
+    addToLabelGroup(groups, label, checkin.level_before);
   }
 
-  return Array.from(groups.entries())
-    .map(([label, entry]) => ({
-      label,
-      count: entry.count,
-      avgLevel: Math.round((entry.levelSum / entry.count) * 10) / 10,
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, limit);
+  return toRankedItems(groups, limit, true);
 }
 
-/** Top-6 Entspannungskontexte (Level ≤ 5, not_spiraling_context gesetzt). */
+/** Top-7 Entspannungskontexte (Level ≤ 5), gruppiert case-insensitive nach TRIM. */
 export function extractNotSpiraling(
   checkins: RawCheckin[],
   range: HistoryRange,
-  limit = 6
+  limit = 7
 ): RankedInsightItem[] {
-  const groups = new Map<string, number>();
+  const groups = new Map<string, LabelGroup>();
 
   for (const checkin of filterByRange(checkins, range)) {
     if (checkin.level_before > 5) continue;
-    const label = checkin.not_spiraling_context?.trim();
+    const label = checkin.not_spiraling_context;
     if (!label) continue;
-    groups.set(label, (groups.get(label) ?? 0) + 1);
+    addToLabelGroup(groups, label, checkin.level_before);
   }
 
-  return Array.from(groups.entries())
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, limit);
+  return toRankedItems(groups, limit, false);
 }
 
 function buildBreathRitual(
@@ -236,8 +276,8 @@ export function buildHistoryAnalytics(
   return {
     range,
     chartPoints,
-    stressors: extractStressors(allCheckins, range),
-    notSpiraling: extractNotSpiraling(allCheckins, range),
+    stressors: extractStressors(allCheckins, range, 5),
+    notSpiraling: extractNotSpiraling(allCheckins, range, 7),
     helpfulSkills: extractHelpfulSkills(allCheckins, skillMap),
     breathRitual: buildBreathRitual(breathCompletions),
   };

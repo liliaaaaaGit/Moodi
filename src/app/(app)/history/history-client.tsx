@@ -85,11 +85,7 @@ export function HistoryClient() {
           <Card className="p-5">
             <SectionHeader>Stressors</SectionHeader>
             <div className="mt-4">
-              <HistoryRankedList
-                items={data.stressors}
-                barColor="#C97B7B"
-                showAvgLevel
-              />
+              <HistoryRankedList items={data.stressors} barColor="#C97B7B" />
             </div>
           </Card>
 
