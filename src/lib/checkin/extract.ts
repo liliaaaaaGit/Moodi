@@ -14,7 +14,7 @@ export function buildExtractSystemPrompt(
 
 Kontext Anspannung:
 Das aktuelle Anspannungslevel der Person ist ${levelBefore} (Skala 0–10, Grundlevel ~5). Nutze dieses Level als zusätzliches Signal zur Interpretation der Situation — auch wenn die Person nicht explizit sagt dass etwas stressig ist.
-- Level 0–5 = entspannt / unter Grundlevel ("Not Spiraling For Once")
+- Level 0–5 = entspannt / unter Grundlevel
 - Level 6–7 = mittel erhöht
 - Level 8–10 = hoch angespannt (Stressor-Territorium)
 
@@ -25,7 +25,7 @@ Felder:
 - gefuehl (string)
 - beduerfnis (string)
 - svv_intent (boolean): nur true bei explizitem Wunsch sich zu verletzen
-- not_spiraling_context (string): Was macht die Situation entspannt / gut? Nur befüllen wenn Level ≤ 5 UND eine erkennbare Entspannungsquelle im Text (z.B. "Auto fahren", "draußen sein", "Musik hören", "allein zuhause"). Sonst leerer String.
+- not_spiraling_context (string): Konkrete Entspannungsquelle aus dem Text (z.B. "Auto fahren", "draußen sein", "Musik hören"). Nur bei Level ≤ 5. NIEMALS App-Kategorien oder Meta-Labels wie "Not Spiraling For Once", "entspannt", "gut geht's" — nur echte Aktivitäten/Situationen. Sonst leerer String.
 - trigger (string): konkreter Auslöser der Anspannung (Stressor). Sei spezifisch, nicht generisch.
 
 Trigger-Regeln (Feld trigger):
@@ -71,6 +71,17 @@ const GENERIC_TRIGGER_LABELS = new Set(
   )
 );
 
+const INVALID_NOT_SPIRALING_LABELS = new Set(
+  [
+    "not spiraling for once",
+    "not spiraling",
+    "entspannt",
+    "gut",
+    "gut geht's",
+    "mir gehts gut",
+  ].map((s) => s.toLowerCase())
+);
+
 /** Serverseitig zu generische Trigger-Labels verwerfen. */
 export function sanitizeTriggerLabel(label: string): string {
   const trimmed = label.trim();
@@ -85,7 +96,12 @@ export function sanitizeNotSpiralingContext(
   value: string
 ): string {
   if (levelBefore > 5) return "";
-  return value.trim();
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const normalized = trimmed.toLowerCase();
+  if (INVALID_NOT_SPIRALING_LABELS.has(normalized)) return "";
+  if (normalized.includes("not spiraling")) return "";
+  return trimmed;
 }
 
 export async function extractCheckinText(

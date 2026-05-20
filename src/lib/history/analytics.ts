@@ -107,36 +107,6 @@ function formatChartLabel(iso: string, range: HistoryRange): string {
   }).format(date);
 }
 
-/** Aggregation über trigger_id — nur Check-ins mit gesetztem semantischem Trigger. */
-function extractTopTriggers(
-  checkins: RawCheckin[],
-  range: HistoryRange,
-  limit = 5
-) {
-  const counts: Record<string, number> = {};
-
-  for (const checkin of checkins) {
-    if (!checkin.trigger_id) continue;
-    if (!filterByRange([checkin], range).length) continue;
-
-    const label = checkin.triggers?.label;
-    if (!label) continue;
-
-    counts[label] = (counts[label] ?? 0) + 1;
-  }
-
-  return Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([label, count]) => ({ label, count }));
-}
-
-export function topTriggersSectionTitle(range: HistoryRange): string {
-  if (range === "month") return "Top Trigger des Monats";
-  if (range === "all") return "Top Trigger";
-  return "Top Trigger der Woche";
-}
-
 function extractHelpfulSkills(
   checkins: RawCheckin[],
   skillMap: Map<string, string>
@@ -268,7 +238,6 @@ export function buildHistoryAnalytics(
     chartPoints,
     stressors: extractStressors(allCheckins, range),
     notSpiraling: extractNotSpiraling(allCheckins, range),
-    topTriggers: extractTopTriggers(allCheckins, range),
     helpfulSkills: extractHelpfulSkills(allCheckins, skillMap),
     breathRitual: buildBreathRitual(breathCompletions),
   };

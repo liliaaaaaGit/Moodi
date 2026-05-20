@@ -1,5 +1,7 @@
 /**
- * Backfill: semantische Trigger für bestehende Check-ins ohne trigger_id.
+ * Backfill: trigger_id und not_spiraling_context für bestehende Check-ins.
+ *
+ * Verarbeitet Check-ins wo trigger_id IS NULL ODER not_spiraling_context IS NULL.
  *
  * Manuell starten (nicht automatisch):
  *   node scripts/backfill-triggers.mjs
@@ -17,6 +19,23 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+const GENERIC_TRIGGER_LABELS = new Set(
+  ["stress", "angst", "druck", "probleme", "arbeit", "müdigkeit", "überforderung"].map(
+    (s) => s.toLowerCase()
+  )
+);
+
+const INVALID_NOT_SPIRALING_LABELS = new Set(
+  [
+    "not spiraling for once",
+    "not spiraling",
+    "entspannt",
+    "gut",
+    "gut geht's",
+    "mir gehts gut",
+  ].map((s) => s.toLowerCase())
+);
 
 function loadEnvLocal() {
   const path = join(root, ".env.local");
@@ -59,13 +78,19 @@ if (!supabaseUrl || !serviceKey || !openaiKey) {
 const supabase = createClient(supabaseUrl, serviceKey);
 const openai = new OpenAI({ apiKey: openaiKey });
 
-function buildExtractSystemPrompt(existingLabels) {
+function buildExtractSystemPrompt(existingLabels, levelBefore) {
   const labelBlock =
     existingLabels.length > 0
       ? existingLabels.map((l) => `   - ${l}`).join("\n")
       : "   (noch keine)";
 
   return `Du bist ein präziser Assistent, der Selbstbeobachtungs-Texte strukturiert. Extrahiere die folgenden Felder. Antworte als JSON. Wenn ein Feld nicht erwähnt wird: leerer String. Erfinde nichts, paraphrasiere knapp.
+
+Kontext Anspannung:
+Das aktuelle Anspannungslevel der Person ist ${levelBefore} (Skala 0–10, Grundlevel ~5). Nutze dieses Level als zusätzliches Signal zur Interpretation der Situation — auch wenn die Person nicht explizit sagt dass etwas stressig ist.
+- Level 0–5 = entspannt / unter Grundlevel
+- Level 6–7 = mittel erhöht
+- Level 8–10 = hoch angespannt (Stressor-Territorium)
 
 Felder:
 - situation (string)
@@ -74,21 +99,41 @@ Felder:
 - gefuehl (string)
 - beduerfnis (string)
 - svv_intent (boolean): nur true bei explizitem Wunsch sich zu verletzen
-- trigger (string): Identifiziere den konkreten ZUGRUNDELIEGENDEN Auslöser der Anspannung — das, was sie tatsächlich verursacht.
+- not_spiraling_context (string): Nur bei level_before ≤ 5: konkrete natürliche Entspannungsquelle aus dem Text (z.B. "Auto fahren", "Vespa fahren", "draußen sein") — NICHT manuell angewendete Skills. NIEMALS Meta-Labels wie "Not Spiraling For Once", "entspannt", "gut". Wenn level_before > 5 oder kein konkreter Entspanner: leerer String.
+- trigger (string): konkreter Auslöser der Anspannung (Stressor). Sei spezifisch, nicht generisch.
 
-Trigger-Regeln:
-1. Bestehende Trigger-Labels dieses Users:
+Trigger-Regeln (Feld trigger):
+GUTE Beispiele: "Deadline Projektabgabe", "Streit mit Mama", "Prüfungsangst Mathe", "Warten auf Arzttermin"
+SCHLECHTE Beispiele (zu generisch, NICHT verwenden): "Stress", "Angst", "Druck", "Probleme", "Arbeit"
+
+Nutze das Anspannungslevel als Signal: wenn Level ≥ 6 und eine Situation beschrieben wird, ist das sehr wahrscheinlich ein Stressor — auch wenn die Person das nicht explizit sagt.
+Fülle trigger nur wenn Level ≥ 6, außer der Text nennt trotzdem klar einen konkreten Stressor.
+
+Bestehende Labels:
 ${labelBlock}
 
-2. Wenn der erkannte Trigger semantisch zu einem bestehenden Label passt: nutze EXAKT dieses Label, Wort für Wort.
-
-3. Wenn kein bestehendes Label passt: formuliere ein neues, kurzes Label (2–5 Wörter, Deutsch). Spezifisch, nicht generisch:
-   - NICHT: 'Stress', 'Angst', 'Müdigkeit', 'Druck', 'Überforderung' allein
-   - JA: 'Deadline-Druck Arbeit', 'Streit mit Partner', 'Schlafmangel', 'Reizüberflutung Büro', 'Soziale Erwartungen', 'Gedankenkarussell nachts'
-
-4. Wenn der Trigger aus dem Text wirklich nicht erkennbar ist (z.B. nur 'mir gehts schlecht'): leerer String ''.
+Wenn der erkannte Stressor semantisch zu einem bestehenden Label passt: nutze EXAKT dieses Label, Wort für Wort.
+Wenn kein bestehendes Label passt: neues Label (2–5 Wörter, Deutsch, spezifisch).
+Wenn wirklich nicht erkennbar: leerer String "".
 
 Antworte ausschließlich mit gültigem JSON, keine Markdown-Codeblöcke.`;
+}
+
+function sanitizeTriggerLabel(label) {
+  const trimmed = label.trim();
+  if (!trimmed) return "";
+  if (GENERIC_TRIGGER_LABELS.has(trimmed.toLowerCase())) return "";
+  return trimmed;
+}
+
+function sanitizeNotSpiralingContext(levelBefore, value) {
+  if (levelBefore > 5) return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const normalized = trimmed.toLowerCase();
+  if (INVALID_NOT_SPIRALING_LABELS.has(normalized)) return "";
+  if (normalized.includes("not spiraling")) return "";
+  return trimmed;
 }
 
 async function fetchExistingTriggers(userId) {
@@ -154,22 +199,30 @@ async function resolveTriggerId(userId, triggerLabel, existing) {
     return null;
   }
 
-  const newEntry = { id: inserted.id, label: normalizedNew, count: 0, created_at: new Date().toISOString() };
+  const newEntry = {
+    id: inserted.id,
+    label: normalizedNew,
+    count: 0,
+    created_at: new Date().toISOString(),
+  };
   existing.push(newEntry);
   return inserted.id;
 }
 
-async function extractTrigger(level, text, existingLabels) {
+async function extractFields(levelBefore, text, existingLabels) {
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0.2,
-    max_tokens: 350,
+    max_tokens: 420,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: buildExtractSystemPrompt(existingLabels) },
+      {
+        role: "system",
+        content: buildExtractSystemPrompt(existingLabels, levelBefore),
+      },
       {
         role: "user",
-        content: `Anspannungslevel: ${level}/10\n\nText:\n${text}`,
+        content: `Das Anspannungslevel bei diesem Eintrag war: ${levelBefore} (Grundlevel der Person ist ~5)\n\nText:\n${text}`,
       },
     ],
   });
@@ -179,7 +232,15 @@ async function extractTrigger(level, text, existingLabels) {
 
   const parsed = JSON.parse(raw);
   return {
-    trigger: typeof parsed.trigger === "string" ? parsed.trigger : "",
+    trigger: sanitizeTriggerLabel(
+      typeof parsed.trigger === "string" ? parsed.trigger : ""
+    ),
+    not_spiraling_context: sanitizeNotSpiralingContext(
+      levelBefore,
+      typeof parsed.not_spiraling_context === "string"
+        ? parsed.not_spiraling_context
+        : ""
+    ),
     svv_intent: Boolean(parsed.svv_intent),
   };
 }
@@ -191,9 +252,11 @@ function sleep(ms) {
 async function main() {
   const { data: checkins, error } = await supabase
     .from("checkins")
-    .select("id, user_id, level_before, input_raw, situation, crisis_flag, trigger_id")
-    .is("trigger_id", null)
+    .select(
+      "id, user_id, level_before, input_raw, situation, crisis_flag, trigger_id, not_spiraling_context"
+    )
     .eq("crisis_flag", false)
+    .or("trigger_id.is.null,not_spiraling_context.is.null")
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -206,7 +269,9 @@ async function main() {
     return text.length > 0;
   });
 
-  console.log(`${rows.length} Check-in(s) ohne trigger_id (mit Text).\n`);
+  console.log(
+    `${rows.length} Check-in(s) mit fehlendem trigger_id und/oder not_spiraling_context (mit Text).\n`
+  );
 
   const triggersByUser = new Map();
 
@@ -218,32 +283,62 @@ async function main() {
     const existingLabels = existing.slice(0, 30).map((t) => t.label);
 
     const text = (checkin.input_raw ?? checkin.situation ?? "").trim();
+    const needsTrigger = checkin.trigger_id == null;
+    const needsNotSpiraling = checkin.not_spiraling_context == null;
 
     try {
-      const { trigger } = await extractTrigger(
+      const { trigger, not_spiraling_context } = await extractFields(
         checkin.level_before,
         text,
         existingLabels
       );
 
-      let triggerId = null;
-      if (trigger.trim()) {
-        triggerId = await resolveTriggerId(checkin.user_id, trigger, existing);
+      const updates = {};
+
+      if (needsTrigger && checkin.level_before >= 6 && trigger) {
+        const triggerId = await resolveTriggerId(checkin.user_id, trigger, existing);
+        if (triggerId) {
+          updates.trigger_id = triggerId;
+        }
       }
 
-      if (triggerId) {
+      if (needsNotSpiraling && not_spiraling_context) {
+        updates.not_spiraling_context = not_spiraling_context;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        const triggerLog = needsTrigger ? `"${trigger || ""}"` : "(bereits gesetzt)";
+        const notSpiralingLog = needsNotSpiraling
+          ? `"${not_spiraling_context || ""}"`
+          : "(bereits gesetzt)";
+        console.log(
+          `– ${checkin.id}: trigger: ${triggerLog} | not_spiraling: ${notSpiralingLog}`
+        );
+      } else {
         const { error: updateError } = await supabase
           .from("checkins")
-          .update({ trigger_id: triggerId })
+          .update(updates)
           .eq("id", checkin.id);
 
         if (updateError) {
           console.error(`✗ ${checkin.id}: Update fehlgeschlagen —`, updateError.message);
         } else {
-          console.log(`✓ ${checkin.id}: „${trigger.trim()}“ → trigger_id ${triggerId}`);
+          const triggerLabel =
+            updates.trigger_id != null
+              ? `"${trigger}"`
+              : checkin.trigger_id
+                ? "(unverändert)"
+                : "—";
+          const notSpiralingLabel =
+            updates.not_spiraling_context != null
+              ? `"${updates.not_spiraling_context}"`
+              : checkin.not_spiraling_context
+                ? "(unverändert)"
+                : "—";
+          console.log(
+            `✓ ${checkin.id}: trigger: ${triggerLabel} | not_spiraling: ${notSpiralingLabel}`
+          );
         }
-      } else {
-        console.log(`– ${checkin.id}: kein Trigger erkannt („${trigger || ""}“)`);
       }
     } catch (err) {
       console.error(`✗ ${checkin.id}:`, err.message);

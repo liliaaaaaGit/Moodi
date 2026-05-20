@@ -8,14 +8,12 @@ import { HistoryRankedList } from "@/components/history/HistoryRankedList";
 import { SectionHeader } from "@/components/SectionHeader";
 import { UI_FEATURES } from "@/lib/features";
 import type { HistoryRange, RankedInsightItem } from "@/lib/history/analytics";
-import { topTriggersSectionTitle } from "@/lib/history/analytics";
 
 type HistoryData = {
   range: HistoryRange;
   chartPoints: ChartPoint[];
   stressors: RankedInsightItem[];
   notSpiraling: RankedInsightItem[];
-  topTriggers: { label: string; count: number }[];
   helpfulSkills: { name: string; count: number }[];
   breathRitual: {
     days: { date: string; label: string; completed: boolean }[];
@@ -84,57 +82,26 @@ export function HistoryClient() {
             </div>
           </Card>
 
-          {range === "week" ? (
-            <Card className="p-5">
-              <p className="text-sm text-text-secondary">
-                Wechsle zu Monat oder Alles für diese Auswertung.
-              </p>
-            </Card>
-          ) : (
-            <div className="space-y-6">
-              <Card className="p-5">
-                <SectionHeader>Stressors</SectionHeader>
-                <div className="mt-4">
-                  <HistoryRankedList
-                    items={data.stressors}
-                    barColor="#C97B7B"
-                    showAvgLevel
-                  />
-                </div>
-              </Card>
-
-              <Card className="p-5">
-                <SectionHeader>Not Spiraling For Once</SectionHeader>
-                <div className="mt-4">
-                  <HistoryRankedList
-                    items={data.notSpiraling}
-                    barColor="#7BA7C9"
-                  />
-                </div>
-              </Card>
+          <Card className="p-5">
+            <SectionHeader>Stressors</SectionHeader>
+            <div className="mt-4">
+              <HistoryRankedList
+                items={data.stressors}
+                barColor="#C97B7B"
+                showAvgLevel
+              />
             </div>
-          )}
+          </Card>
 
-          <section className="space-y-3">
-            <SectionHeader>{topTriggersSectionTitle(data.range)}</SectionHeader>
-            {data.topTriggers.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {data.topTriggers.map((trigger) => (
-                  <span
-                    key={trigger.label}
-                    className="rounded-full bg-primary/15 px-3 py-1.5 text-sm font-medium text-primary"
-                  >
-                    {trigger.label}
-                    <span className="ml-1 text-xs opacity-70">({trigger.count})</span>
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-text-secondary">
-                Noch keine Trigger erkannt.
-              </p>
-            )}
-          </section>
+          <Card className="p-5">
+            <SectionHeader>Not Spiraling For Once</SectionHeader>
+            <div className="mt-4">
+              <HistoryRankedList
+                items={data.notSpiraling}
+                barColor="#7BA7C9"
+              />
+            </div>
+          </Card>
 
           <section className="space-y-3">
             <SectionHeader>Skills, die geholfen haben</SectionHeader>
