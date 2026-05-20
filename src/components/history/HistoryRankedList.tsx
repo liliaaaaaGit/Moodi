@@ -1,5 +1,12 @@
 import type { RankedInsightItem } from "@/lib/history/analytics";
 
+const shortenLabel = (label: string, maxLength: number = 28): string => {
+  if (label.length <= maxLength) return label;
+  const trimmed = label.substring(0, maxLength);
+  const lastSpace = trimmed.lastIndexOf(" ");
+  return lastSpace > 0 ? trimmed.substring(0, lastSpace) : trimmed;
+};
+
 type HistoryRankedListProps = {
   items: RankedInsightItem[];
   barColor: string;
@@ -13,10 +20,10 @@ export function HistoryRankedList({ items, barColor }: HistoryRankedListProps) {
   return (
     <ul className="space-y-4">
       {items.map((item) => (
-        <li key={item.label.toLowerCase().trim()} className="min-w-0 overflow-hidden">
-          <div className="flex min-w-0 items-center gap-2 overflow-hidden">
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
-              {item.label}
+        <li key={item.label.toLowerCase().trim()} className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="min-w-0 flex-1 whitespace-nowrap text-sm font-medium text-text-primary">
+              {shortenLabel(item.label)}
             </span>
             <span className="shrink-0 text-xs text-text-secondary">
               Ø {item.avgLevel.toFixed(1)}
