@@ -92,7 +92,7 @@ export function HistoryClient() {
         <div className="mt-8 space-y-8">
           <Card className="p-4">
             <SectionHeader>Anspannung im Verlauf</SectionHeader>
-            <div className="mt-4">
+            <div className="mt-4 w-full min-w-0 overflow-hidden">
               <HistoryLineChart data={data.chartPoints} onPointSelect={handlePointSelect} />
             </div>
           </Card>
