@@ -1,7 +1,6 @@
 "use client";
 
 import { clsx } from "clsx";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/Card";
 import { HistoryHeatmap } from "@/components/history/HistoryHeatmap";
@@ -38,7 +37,6 @@ const TABS: { id: HistoryRange; label: string }[] = [
 ];
 
 export function HistoryClient() {
-  const router = useRouter();
   const [range, setRange] = useState<HistoryRange>("week");
   const [data, setData] = useState<HistoryData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,10 +57,6 @@ export function HistoryClient() {
   useEffect(() => {
     loadData(range);
   }, [range, loadData]);
-
-  function handlePointSelect(point: ChartPoint) {
-    router.push(`/history/${point.id}`);
-  }
 
   return (
     <>
@@ -93,7 +87,7 @@ export function HistoryClient() {
           <Card className="p-4">
             <SectionHeader>Anspannung im Verlauf</SectionHeader>
             <div className="mt-4 w-full min-w-0 overflow-hidden">
-              <HistoryLineChart data={data.chartPoints} onPointSelect={handlePointSelect} />
+              <HistoryLineChart data={data.chartPoints} />
             </div>
           </Card>
 

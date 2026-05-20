@@ -1,14 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { useRouter } from "next/navigation";
 import {
   CartesianGrid,
   Line,
   LineChart,
   ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
@@ -21,7 +21,13 @@ export type ChartPoint = ChartPointDetail & {
 
 type HistoryLineChartProps = {
   data: ChartPoint[];
-  onPointSelect: (point: ChartPoint) => void;
+};
+
+type ActivePoint = {
+  checkinId: string;
+  level: number;
+  x: number;
+  y: number;
 };
 
 const BERLIN_TZ = "Europe/Berlin";
@@ -50,14 +56,18 @@ function formatWeekdayTick(value: string): string {
   return format(date, "EEE", { locale: de }).replace(/\.$/, "");
 }
 
-function ClickableDot(props: {
+function ChartDot({
+  cx,
+  cy,
+  payload,
+  onActivate,
+}: {
   cx?: number;
   cy?: number;
   payload?: ChartPoint;
-  onSelect: (point: ChartPoint) => void;
+  onActivate: (point: ActivePoint) => void;
 }) {
-  const { cx = 0, cy = 0, payload, onSelect } = props;
-  if (!payload) return null;
+  if (cx == null || cy == null || !payload) return null;
 
   return (
     <circle
@@ -70,13 +80,20 @@ function ClickableDot(props: {
       style={{ cursor: "pointer" }}
       onClick={(event) => {
         event.stopPropagation();
-        onSelect(payload);
+        onActivate({
+          checkinId: payload.id,
+          level: payload.level,
+          x: cx,
+          y: cy,
+        });
       }}
     />
   );
 }
 
-export function HistoryLineChart({ data, onPointSelect }: HistoryLineChartProps) {
+export function HistoryLineChart({ data }: HistoryLineChartProps) {
+  const router = useRouter();
+  const [activePoint, setActivePoint] = useState<ActivePoint | null>(null);
   const dayTicks = useMemo(() => buildDayTicks(data), [data]);
 
   if (data.length === 0) {
@@ -88,7 +105,7 @@ export function HistoryLineChart({ data, onPointSelect }: HistoryLineChartProps)
   }
 
   return (
-    <div className="w-full">
+    <div className="relative w-full" onClick={() => setActivePoint(null)}>
       <ResponsiveContainer width="100%" height={220}>
         <LineChart data={data} margin={{ top: 10, right: 16, left: -16, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e8eef4" vertical={false} />
@@ -105,25 +122,37 @@ export function HistoryLineChart({ data, onPointSelect }: HistoryLineChartProps)
             width={28}
             tick={{ fontSize: 11, fill: "#6B7A8C" }}
           />
-          <Tooltip
-            contentStyle={{
-              borderRadius: 12,
-              border: "none",
-              boxShadow: "0 4px 24px rgba(30,42,56,0.12)",
-            }}
-            labelFormatter={(value) => formatWeekdayTick(String(value))}
-            formatter={(value) => [`Level ${value}`, "Anspannung"]}
-          />
           <Line
             type="monotone"
             dataKey="level"
             stroke="#7BA7C9"
             strokeWidth={2.5}
-            dot={(props) => <ClickableDot {...props} onSelect={onPointSelect} />}
-            activeDot={{ r: 7, fill: "#7BA7C9", cursor: "pointer" }}
+            dot={(props) => (
+              <ChartDot {...props} onActivate={setActivePoint} />
+            )}
+            activeDot={(props) => (
+              <ChartDot {...props} onActivate={setActivePoint} />
+            )}
           />
         </LineChart>
       </ResponsiveContainer>
+
+      {activePoint ? (
+        <div
+          className="absolute z-10 flex cursor-pointer items-center gap-3 rounded-2xl border border-accent bg-white px-4 py-3 shadow-soft-lg"
+          style={{
+            top: activePoint.y - 70,
+            left: Math.max(8, activePoint.x - 60),
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            router.push(`/history/${activePoint.checkinId}`);
+          }}
+        >
+          <span className="text-3xl font-bold text-primary">{activePoint.level}</span>
+          <span className="text-sm text-text-secondary">Eintrag ansehen →</span>
+        </div>
+      ) : null}
     </div>
   );
 }
