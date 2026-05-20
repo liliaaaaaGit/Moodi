@@ -82,16 +82,16 @@ export function HistoryClient() {
             </div>
           </Card>
 
-          <Card className="p-5">
+          <Card className="min-w-0 p-5">
             <SectionHeader>Stressors</SectionHeader>
-            <div className="mt-4">
+            <div className="mt-4 min-w-0 overflow-hidden">
               <HistoryRankedList items={data.stressors} barColor="#C97B7B" />
             </div>
           </Card>
 
-          <Card className="p-5">
+          <Card className="min-w-0 p-5">
             <SectionHeader>Not Spiraling For Once</SectionHeader>
-            <div className="mt-4">
+            <div className="mt-4 min-w-0 overflow-hidden">
               <HistoryRankedList
                 items={data.notSpiraling}
                 barColor="#7BA7C9"

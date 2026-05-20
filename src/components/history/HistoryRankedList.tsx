@@ -13,19 +13,17 @@ export function HistoryRankedList({ items, barColor }: HistoryRankedListProps) {
   return (
     <ul className="space-y-4">
       {items.map((item) => (
-        <li key={item.label.toLowerCase().trim()} className="min-w-0">
-          <div className="flex items-start justify-between gap-3">
-            <p className="min-w-0 flex-1 text-sm font-medium leading-snug text-text-primary">
+        <li key={item.label.toLowerCase().trim()} className="min-w-0 overflow-hidden">
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
               {item.label}
-            </p>
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="text-xs text-text-secondary">
-                Ø {item.avgLevel.toFixed(1)}
-              </span>
-              <span className="rounded-full bg-bg px-2.5 py-0.5 text-xs font-medium tabular-nums text-text-primary">
-                {item.count}
-              </span>
-            </div>
+            </span>
+            <span className="shrink-0 text-xs text-text-secondary">
+              Ø {item.avgLevel.toFixed(1)}
+            </span>
+            <span className="shrink-0 rounded-full bg-bg px-2.5 py-0.5 text-xs font-medium tabular-nums text-text-primary">
+              {item.count}
+            </span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-bg">
             <div
