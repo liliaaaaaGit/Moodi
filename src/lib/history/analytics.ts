@@ -53,10 +53,12 @@ function addToLabelGroup(
   });
 }
 
+type RankedSortMode = "avgLevelDesc" | "avgLevelAsc";
+
 function toRankedItems(
   groups: Map<string, LabelGroup>,
   limit: number,
-  tieBreakByAvgLevel: boolean
+  sortMode: RankedSortMode
 ): RankedInsightItem[] {
   return Array.from(groups.values())
     .map((entry) => ({
@@ -65,11 +67,10 @@ function toRankedItems(
       avgLevel: Math.round((entry.levelSum / entry.count) * 10) / 10,
     }))
     .sort((a, b) => {
-      if (b.count !== a.count) return b.count - a.count;
-      if (tieBreakByAvgLevel && b.avgLevel !== a.avgLevel) {
-        return b.avgLevel - a.avgLevel;
+      if (sortMode === "avgLevelDesc") {
+        return b.avgLevel - a.avgLevel || b.count - a.count;
       }
-      return a.label.localeCompare(b.label, "de");
+      return a.avgLevel - b.avgLevel || b.count - a.count;
     })
     .slice(0, limit);
 }
@@ -197,7 +198,7 @@ export function extractStressors(
     addToLabelGroup(groups, label, checkin.level_before);
   }
 
-  return toRankedItems(groups, limit, true);
+  return toRankedItems(groups, limit, "avgLevelDesc");
 }
 
 /** Top-7 Entspannungskontexte (Level 0–4), gruppiert case-insensitive nach TRIM. */
@@ -215,7 +216,7 @@ export function extractNotSpiraling(
     addToLabelGroup(groups, label, checkin.level_before);
   }
 
-  return toRankedItems(groups, limit, false);
+  return toRankedItems(groups, limit, "avgLevelAsc");
 }
 
 function computeAvgLevel(checkins: RawCheckin[]): number {
