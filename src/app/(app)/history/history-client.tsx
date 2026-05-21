@@ -12,6 +12,7 @@ import type { HistoryRange, RankedInsightItem } from "@/lib/history/analytics";
 type HistoryData = {
   range: HistoryRange;
   chartPoints: ChartPoint[];
+  avgLevel: number;
   stressors: RankedInsightItem[];
   notSpiraling: RankedInsightItem[];
   helpfulSkills: { name: string; count: number }[];
@@ -80,6 +81,14 @@ export function HistoryClient() {
             <div className="mt-4 w-full min-w-0 overflow-hidden">
               <HistoryLineChart data={data.chartPoints} />
             </div>
+            {data.chartPoints.length > 0 ? (
+              <div className="mt-2 flex items-center justify-end gap-2 border-t border-[#EAF2F9] pt-2">
+                <span className="text-xs text-[#6B7A8C]">Durchschnitt</span>
+                <span className="text-sm font-semibold text-[#7BA7C9]">
+                  Ø {data.avgLevel.toFixed(1)}
+                </span>
+              </div>
+            ) : null}
           </Card>
 
           <Card className="min-w-0 p-5">

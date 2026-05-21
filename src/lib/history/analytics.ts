@@ -200,7 +200,7 @@ export function extractStressors(
   return toRankedItems(groups, limit, true);
 }
 
-/** Top-7 Entspannungskontexte (Level ≤ 5), gruppiert case-insensitive nach TRIM. */
+/** Top-7 Entspannungskontexte (Level 0–4), gruppiert case-insensitive nach TRIM. */
 export function extractNotSpiraling(
   checkins: RawCheckin[],
   range: HistoryRange,
@@ -209,13 +209,19 @@ export function extractNotSpiraling(
   const groups = new Map<string, LabelGroup>();
 
   for (const checkin of filterByRange(checkins, range)) {
-    if (checkin.level_before > 5) continue;
+    if (checkin.level_before >= 5) continue;
     const label = checkin.not_spiraling_context;
     if (!label) continue;
     addToLabelGroup(groups, label, checkin.level_before);
   }
 
   return toRankedItems(groups, limit, false);
+}
+
+function computeAvgLevel(checkins: RawCheckin[]): number {
+  if (checkins.length === 0) return 0;
+  const sum = checkins.reduce((acc, c) => acc + c.level_before, 0);
+  return Math.round((sum / checkins.length) * 10) / 10;
 }
 
 function buildBreathRitual(
@@ -276,6 +282,7 @@ export function buildHistoryAnalytics(
   return {
     range,
     chartPoints,
+    avgLevel: computeAvgLevel(filtered),
     stressors: extractStressors(allCheckins, range, 5),
     notSpiraling: extractNotSpiraling(allCheckins, range, 7),
     helpfulSkills: extractHelpfulSkills(allCheckins, skillMap),
